@@ -97,7 +97,7 @@ public:
 
 
 #   if  MAN_LINK
-#   define FN_DECL(ret,nm,argt,arg) static inline ret nm argt {  typeof(::nm) *fn = (typeof(::nm) *)fnPtrs[e##nm]; return (*fn) arg; }
+#   define FN_DECL(ret,nm,argt,arg) static inline ret nm argt {  decltype(::nm) *fn = (decltype(::nm) *)fnPtrs[e##nm]; return (*fn) arg; }
 #   include "N_DEV_SourceDataExt.inc"
 #   endif
 
