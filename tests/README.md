@@ -5,13 +5,12 @@ This directory contains examples and tools for using Xyce's external code loadin
 ## Directory Structure
 
 ```
-sandbox/
+tests/
 ├── Makefile           - Top-level makefile for all tests
 ├── README.md          - This file
 ├── xbridge.C          - Shared bridge implementation
 ├── xbridge.h          - Shared bridge header
 ├── gates.h            - Shared gate class definitions
-├── N_DEV_*.{h,inc}    - Symlinks to Xyce device interface files
 ├── gates-test/        - Original C++ inverter example
 │   ├── Makefile
 │   ├── gates.C        - Inverter implementation
@@ -106,7 +105,7 @@ make plot              # Generate waveform
 ### Automatic Plotting
 
 ```bash
-# From sandbox/ directory
+# From tests/ directory
 tools/plot_xyce.sh gates-test/inv.cir.prn
 tools/plot_xyce.sh verilator-test/inv_verilator.cir.prn
 
@@ -163,7 +162,7 @@ Components:
 
 ## Makefile Targets
 
-### Top Level (`sandbox/`)
+### Top Level (`tests/`)
 
 ```bash
 make all        # Build all tests (default)

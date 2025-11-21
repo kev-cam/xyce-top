@@ -3,13 +3,14 @@
 # Paths
 XYCE_BIN = /usr/local/xyce_patched/bin/Xyce
 XYCE_INC = /usr/local/xyce_patched/include
+XYCE_SRC = ../../src/DeviceModelPKG/Core
 TRILINOS_INC = /home/user/trilinos-14.4-install/include
 VERILATOR_INC = /usr/share/verilator/include
 PARENT_DIR = ..
 
 # Compiler settings
 CXX = g++
-CXXFLAGS = -fPIC -std=c++11 -I$(PARENT_DIR) -I$(XYCE_INC) -I$(TRILINOS_INC) -I$(VERILATOR_INC) -I.
+CXXFLAGS = -fPIC -std=c++11 -I$(PARENT_DIR) -I$(XYCE_SRC) -I$(XYCE_INC) -I$(TRILINOS_INC) -I$(VERILATOR_INC) -I.
 LDFLAGS = -shared
 
 # Verilator settings
