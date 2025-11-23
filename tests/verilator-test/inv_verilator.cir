@@ -1,0 +1,25 @@
+* Inverter test using Verilator-based digital model
+.title Verilator Inverter Test
+
+* Load external Verilator model
+.external verilator_inv.so
+
+* Supply voltage
+Vdd vdd 0 1.0
+
+* Input stimulus - pulse waveform
+Vin in 0 PULSE(0 1 1n 0.1n 0.1n 5n 10n)
+
+* Inverter using Verilator model
+YVERILATOR INV1 in out VERILOG_MODULE="simple_inv"
+
+* Load resistor
+Rload out 0 1k
+
+* Transient analysis
+.tran 0.1n 20n
+
+* Output
+.print tran v(in) v(out)
+
+.end
