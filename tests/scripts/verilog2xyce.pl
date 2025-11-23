@@ -438,14 +438,16 @@ sub generate_netlist {
 
 EOF
 
-    # Generate stimulus for inputs
-    my $time = 0;
-    for my $in (@inputs) {
-        $time += 1;
-        print $fh "* Input stimulus for $in\n";
-        print $fh "Vin_$in ${in}_node 0 PULSE(0 1 ${time}n 0.1n 0.1n 5n 10n)\n\n";
+    if ($stimulate) {
+	# Generate stimulus for inputs
+	my $time = 0;
+	for my $in (@inputs) {
+	    $time += 1;
+	    print $fh "* Input stimulus for $in\n";
+	    print $fh "Vin_$in ${in}_node 0 PULSE(0 1 ${time}n 0.1n 0.1n 5n 10n)\n\n";
+	}
     }
-
+    
     # Generate device instances
     print $fh "* $module device using Verilator (ports via PWL bridge)\n";
     for my $in (@inputs) {
