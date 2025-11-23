@@ -4,13 +4,19 @@
 GATES_TEST = gates-test
 VERILATOR_TEST = verilator-test
 
+# Cell library path for ATPG setup (can be overridden)
+CELL_LIB_PATH ?= $(HOME)/skywater-pdk-libs-sky130_fd_sc_hdll
+
+# ATPG setup script
+ATPG_SETUP = ./setup_verilog_atpg.pl
+
 # Xyce
 export XYCE_INSTALL_DIR=/usr/local
 
 # Trilinos
 export TRILINOS_INSTALL_DIR=/usr/local
 
-.PHONY: all build test clean help gates verilator plot
+.PHONY: all build test clean help gates verilator plot cell-library cell-library-dry-run
 
 # Default target - build all tests
 all: build
@@ -51,6 +57,29 @@ plot:
 	@$(MAKE) -C $(VERILATOR_TEST) plot
 	@echo "=== Plots complete ==="
 
+# Setup ATPG testing for cell library
+cell-library:
+	@echo "=== Setting up ATPG for Cell Library ==="
+	@if [ ! -d "$(CELL_LIB_PATH)" ]; then \
+		echo "Error: Cell library path not found: $(CELL_LIB_PATH)"; \
+		echo "Set CELL_LIB_PATH variable to your cell library directory"; \
+		echo "Example: make cell-library CELL_LIB_PATH=/path/to/skywater-pdk"; \
+		exit 1; \
+	fi
+	@$(ATPG_SETUP) $(CELL_LIB_PATH)
+	@echo "=== ATPG setup complete ==="
+
+# Dry-run of ATPG setup
+cell-library-dry-run:
+	@echo "=== ATPG Setup Dry Run ==="
+	@if [ ! -d "$(CELL_LIB_PATH)" ]; then \
+		echo "Error: Cell library path not found: $(CELL_LIB_PATH)"; \
+		echo "Set CELL_LIB_PATH variable to your cell library directory"; \
+		echo "Example: make cell-library-dry-run CELL_LIB_PATH=/path/to/skywater-pdk"; \
+		exit 1; \
+	fi
+	@$(ATPG_SETUP) --dry-run $(CELL_LIB_PATH)
+
 # Clean all tests
 clean:
 	@echo "=== Cleaning all tests ==="
@@ -67,14 +96,16 @@ help:
 	@echo "and Verilator-based digital logic with Xyce circuit simulator."
 	@echo ""
 	@echo "Targets:"
-	@echo "  make all        - Build all tests (default)"
-	@echo "  make build      - Build all tests"
-	@echo "  make test       - Run all tests"
-	@echo "  make gates      - Build and run gates test"
-	@echo "  make verilator  - Build and run verilator test"
-	@echo "  make plot       - Generate waveform plots for all tests"
-	@echo "  make clean      - Remove all generated files"
-	@echo "  make help       - Show this help message"
+	@echo "  make all                  - Build all tests (default)"
+	@echo "  make build                - Build all tests"
+	@echo "  make test                 - Run all tests"
+	@echo "  make gates                - Build and run gates test"
+	@echo "  make verilator            - Build and run verilator test"
+	@echo "  make cell-library         - Setup ATPG for cell library"
+	@echo "  make cell-library-dry-run - Preview ATPG setup (dry run)"
+	@echo "  make plot                 - Generate waveform plots for all tests"
+	@echo "  make clean                - Remove all generated files"
+	@echo "  make help                 - Show this help message"
 	@echo ""
 	@echo "Individual Tests:"
 	@echo "  cd gates-test && make help       - Gates test options"
@@ -83,6 +114,10 @@ help:
 	@echo "Tools:"
 	@echo "  tools/plot_xyce.sh <file.prn>           - Plot Xyce output"
 	@echo "  verilator-test/verilog2xyce.pl --help   - Verilog wrapper generator"
+	@echo "  setup_verilog_atpg.pl --help            - ATPG setup script"
+	@echo ""
+	@echo "Cell Library ATPG:"
+	@echo "  make cell-library CELL_LIB_PATH=/path/to/library"
 	@echo ""
 	@echo "Documentation:"
 	@echo "  See README.md for detailed information"
