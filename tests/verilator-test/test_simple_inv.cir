@@ -1,0 +1,23 @@
+* Test circuit for simple_inv Verilator module
+.title Simple Inverter Verilator Test
+
+* Include the Verilator-wrapped inverter subcircuit
+.INCLUDE simple_inv_xyce.cir
+
+* Input stimulus - pulse waveform
+Vin in_node 0 PULSE(0 1 1n 0.1n 0.1n 5n 10n)
+
+* Instantiate the inverter
+* Use the YPWL devices from simple_inv_xyce.cir
+XINV simple_inv
+
+* Output load
+Rload out_node 0 1k
+
+* Transient analysis
+.tran 0.1n 30n
+
+* Output
+.print tran v(in_node) v(out_node)
+
+.end
