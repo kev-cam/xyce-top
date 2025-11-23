@@ -10,7 +10,7 @@ PARENT_DIR = ..
 
 # Compiler settings
 CXX = g++
-CXXFLAGS = -fPIC -std=c++11 -I$(PARENT_DIR) -I$(XYCE_SRC) -I$(XYCE_INC) -I$(TRILINOS_INC) -I$(VERILATOR_INC) -I.
+CXXFLAGS = -fPIC -std=c++11 -I$(PARENT_DIR) -I$(XYCE_SRC) -I$(XYCE_INC) -I$(TRILINOS_INC) -I$(VERILATOR_INC) -Iobj_dir -I.
 LDFLAGS = -shared
 
 # Verilator settings
