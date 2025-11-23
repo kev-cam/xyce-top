@@ -1,4 +1,3 @@
-
 #include <cmath>
 
 #define NEED_FN_DECL
