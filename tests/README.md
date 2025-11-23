@@ -19,6 +19,7 @@ A Python script that traverses a directory hierarchy (such as the skywater-pdk-l
 ```bash
 # Run on the skywater PDK library (replace with actual path)
 ./setup_verilog_atpg.py /path/to/skywater-pdk-libs-sky130_fd_sc_hdll
+
 ```
 
 ### Dry Run (Preview Mode)
@@ -26,8 +27,8 @@ A Python script that traverses a directory hierarchy (such as the skywater-pdk-l
 To see what would be done without making any changes:
 
 ```bash
-./setup_verilog_atpg.py --dry-run /path/to/skywater-pdk-libs-sky130_fd_sc_hdll
-```
+./setup_verilog_atpg.pl --dry-run /path/to/skywater-pdk-libs-sky130_fd_sc_hdll
+`
 
 ### Options
 
@@ -47,7 +48,18 @@ To see what would be done without making any changes:
 
 # Exclude additional directories
 ./setup_verilog_atpg.py --exclude xatpg .git build /path/to/verilog/lib
-```
+
+./setup_verilog_atpg.pl --dry-run ~/repos/skywater-pdk-libs-sky130_fd_sc_hdll
+
+# Actually create the ATPG structure
+./setup_verilog_atpg.pl ~/repos/skywater-pdk-libs-sky130_fd_sc_hdll
+
+# Exclude additional directories
+./setup_verilog_atpg.pl --exclude xatpg .git build /path/to/verilog/lib
+
+# Show help
+./setup_verilog_atpg.pl --help
+``
 
 ## What Gets Created
 
@@ -92,7 +104,14 @@ make help
 
 ## Requirements
 
-- Python 3.6 or later
+- Perl 5.10 or later with standard modules:
+  - File::Find
+  - File::Path
+  - File::Spec
+  - File::Basename
+  - Getopt::Long
+  - Cwd
+
 - FAN_ATPG tool (must be in your PATH or modify the Makefile to specify full path)
 
 ## Notes
