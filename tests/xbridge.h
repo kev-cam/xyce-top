@@ -1,4 +1,5 @@
 
+#include <cmath>
 
 #define NEED_FN_DECL
 #include "N_DEV_SourceDataExt.h"
