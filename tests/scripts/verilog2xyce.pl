@@ -449,10 +449,10 @@ EOF
     # Generate device instances
     print $fh "* $module device using Verilator (ports via PWL bridge)\n";
     for my $in (@inputs) {
-        print $fh "YPWL ${module}_${in} ${in}_node file://$so_file!Connect${class_name} $in\n";
+        print $fh "IPWL ${module}_${in} ${in}_node \"code:./$so_file!Connect${class_name}:$in\"\n";
     }
     for my $out (@outputs) {
-        print $fh "YPWL ${module}_${out} ${out}_node file://$so_file!Connect${class_name} $out\n";
+        print $fh "VPWL ${module}_${out} ${out}_node \"code:./$so_file!Connect${class_name}:$out\"\n";
     }
     print $fh "\n";
 

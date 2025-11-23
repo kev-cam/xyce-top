@@ -113,7 +113,7 @@ help:
 	@echo ""
 	@echo "Tools:"
 	@echo "  tools/plot_xyce.sh <file.prn>           - Plot Xyce output"
-	@echo "  verilator-test/verilog2xyce.pl --help   - Verilog wrapper generator"
+	@echo "  scripts/verilog2xyce.pl --help          - Verilog wrapper generator"
 	@echo "  setup_verilog_atpg.pl --help            - ATPG setup script"
 	@echo ""
 	@echo "Cell Library ATPG:"

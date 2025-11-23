@@ -21,12 +21,12 @@ VERILATOR_FLAGS = --cc -CFLAGS "-fPIC"
 VERILOG_SRC = simple_inv.v
 MODULE_NAME = simple_inv
 VERILATOR_CLASS = Vsimple_inv
-TARGET = verilator_inv.so
-BRIDGE_SRC = verilator_xyce_bridge.cpp
+TARGET = simple_inv_xyce.so
+BRIDGE_SRC = simple_inv_xyce.C
 VERILATOR_SRCS = $(VERILATOR_INC)/verilated.cpp $(VERILATOR_INC)/verilated_threads.cpp
 VERILATOR_LIB = obj_dir/$(VERILATOR_CLASS)__ALL.a
-NETLIST = inv_verilator.cir
-OUTPUT = inv_verilator.cir.prn
+NETLIST = simple_inv_xyce.cir
+OUTPUT = simple_inv_xyce.cir.prn
 
 .PHONY: all build verilate test clean plot help
 
