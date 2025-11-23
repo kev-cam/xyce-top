@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/usr/bin/env perl -s
 #
 # verilog2xyce.pl - Generate Xyce wrapper files for Verilator modules
 #
