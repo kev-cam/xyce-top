@@ -1,0 +1,42 @@
+
+.SUBCKT INV VDD OUT IN
+VPWL1 DRV 0 PWL FILE "code:./gates.so:AttachInv:output,Vtol=1e-3,Ttol=1e-13,Delay=2e-9,RiseT=1e-9,FallT=1e-9"
+IPWL2 IN  0 PWL FILE "code:./gates.so:AttachInv:input"
+IPWL3 VDD 0 PWL FILE "code:./gates.so:AttachInv:vdd" 
+ROUT DRV OUT 100
+COUT OUT   0 1e-14
+.ENDS
+
+X1 VDD B A INV
+X2 VDD C B INV
+X3 VDD D C INV
+
+VPWL1 VDD 0 PWL(0S 0V  2nS 3V)
+
+VPWL2 A   0 PWL(  0S 0V
++                2ns 0V
++                3nS 3V
++                8nS 3V
++                9nS 0V
++               14ns 0V
++               15ns 3V
++               20ns 3V
++               21ns 0V
++               26ns 0V
++               27ns 3V
++               32ns 3V
++               31ns 0V
++               38ns 0V
++)
+
+.TRAN 1nS 40nS
+.PRINT TRAN V(VDD) V(A) V(B) V(C) V(D)
+.END
+
+*   plot 'inv-string.cir.prn' using 2:2 with lines title "T"
+* replot 'inv-string.cir.prn' using 2:3 with lines title "Vdd"
+* replot 'inv-string.cir.prn' using 2:4 with lines title "V(a)"
+* replot 'inv-string.cir.prn' using 2:5 with lines title "V(b)"
+* replot 'inv-string.cir.prn' using 2:6 with lines title "V(c)"
+* replot 'inv-string.cir.prn' using 2:7 with lines title "V(d)"
+* grep plot <inv-string.cir | cut -c2- | gnuplot -p
