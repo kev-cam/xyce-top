@@ -34,10 +34,7 @@ public:
     inline VerilatorPwlHandler *In()  const { return in; }
     inline VerilatorPwlHandler *Out() const { return out; }
 
-    bool Finished() {
-        return (NULL != in && NULL != out && out->ready());
-    }
-
+    bool Finished();
     void Eval(double now);
 };
 
@@ -57,6 +54,10 @@ public:
 
 std::vector<VerilatorInv *> VerilatorInvs;
 std::vector<VerilatorInv *> VerilatorInvsTmp;
+
+bool VerilatorInv::Finished() {
+    return (NULL != in && NULL != out && out->ready());
+}
 
 void VerilatorInv::Eval(double now) {
     if (!in || !out) return;
