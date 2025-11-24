@@ -7,9 +7,11 @@
 * Input stimulus - pulse waveform
 Vin in_node 0 PULSE(0 1 1n 0.1n 0.1n 5n 10n)
 
+VPWL1 VDD 0 PWL(0S 3.1V 1ns 3V)
+
 * Instantiate the inverter
 * Use the YPWL devices from simple_inv_xyce.cir
-XINV simple_inv
+X1 VDD out_node in_node simple_inv
 
 * Output load
 Rload out_node 0 1k

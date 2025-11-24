@@ -1,4 +1,5 @@
-#!/usr/bin/env perl -s
+#!/usr/bin/env perl
+
 #
 # verilog2xyce.pl - Generate Xyce wrapper files for Verilator modules
 #
@@ -19,11 +20,13 @@ my $module_name = '';
 my $verilog_file = '';
 my $output_dir = '.';
 my $help = 0;
+my $stimulate = 0;
 
 GetOptions(
     'module|m=s'  => \$module_name,
     'verilog|v=s' => \$verilog_file,
     'output|o=s'  => \$output_dir,
+    'stim|s=s'    => \$stimulate,
     'help|h'      => \$help,
 ) or die "Error in command line arguments\n";
 
@@ -439,6 +442,8 @@ sub generate_netlist {
 
 EOF
 
+    print $fh ".SUBCKT $module VDD OUT IN\n\n";
+
     if ($stimulate) {
 	# Generate stimulus for inputs
 	my $time = 0;
@@ -451,28 +456,34 @@ EOF
     
     # Generate device instances
     print $fh "* $module device using Verilator (ports via PWL bridge)\n";
+    my $n = 1;
     for my $in (@inputs) {
-        print $fh "IPWL ${module}_${in} ${in}_node \"code:./$so_file!Connect${class_name}:$in\"\n";
+        print $fh "IPWL$n ${module}_${in} 0 PWL FILE \"code:./$so_file:Connect${class_name}:$in\"\n";
+	$n++;
     }
     for my $out (@outputs) {
-        print $fh "VPWL ${module}_${out} ${out}_node \"code:./$so_file!Connect${class_name}:$out\"\n";
+        print $fh "VPWL$n ${module}_${out} 0 PWL FILE \"code:./$so_file:Connect${class_name}:$out\"\n";
+	$n++;
     }
-    print $fh "\n";
+
+    print $fh "\n.ENDS\n\n";
 
     # Load resistors for outputs
     for my $out (@outputs) {
         print $fh "Rload_$out ${out}_node 0 1k\n";
     }
 
-    print $fh "\n* Transient analysis\n";
-    print $fh ".tran 0.1n 30n\n\n";
-    print $fh "* Output\n";
-    print $fh ".print tran ";
-    print $fh join(" ", map { "v(${_}_node)" } @inputs);
-    print $fh " ";
-    print $fh join(" ", map { "v(${_}_node)" } @outputs);
-    print $fh "\n\n.end\n";
-
+    if ($stimulate) {
+	print $fh "\n* Transient analysis\n";
+	print $fh ".tran 0.1n 30n\n\n";
+	print $fh "* Output\n";
+	print $fh ".print tran ";
+	print $fh join(" ", map { "v(${_}_node)" } @inputs);
+	print $fh " ";
+	print $fh join(" ", map { "v(${_}_node)" } @outputs);
+	print $fh "\n\n.end\n";
+    }
+    
     close($fh);
 }
 

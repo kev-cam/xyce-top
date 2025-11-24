@@ -43,7 +43,11 @@ $(BRIDGE_SRC) $(BRIDGE_HDR) $(WRAPPER_CIR): $(VERILOG_SRC) $(VERILOG2XYCE)
 	$(VERILOG2XYCE) -m $(MODULE_NAME)
 
 # Full build process
-build: generate verilate $(TARGET)
+build: generate verilate wrap $(TARGET)
+
+# create wrapper
+wrap:
+	../scripts/verilog2xyce.pl -m=$(MODULE_NAME)
 
 # Run Verilator to generate C++
 verilate: $(VERILOG_SRC)
@@ -63,11 +67,12 @@ $(TARGET): $(BRIDGE_SRC) $(VERILATOR_LIB) $(PARENT_DIR)/xbridge.C
 # Run test
 test: build
 	@echo "Running Xyce simulation..."
-	-$(XYCE_BIN) $(NETLIST) > /dev/null 2>&1
+	-$(XYCE_BIN) $(NETLIST) > $(MODULE_NAME).log 2>&1
 	@if [ -f $(OUTPUT) ]; then \
 		echo "Test completed successfully!"; \
 		echo "Output: $(OUTPUT) ($$(wc -l < $(OUTPUT)) lines)"; \
 	else \
+                tail $(MODULE_NAME).log ;\
 		echo "Test failed - no output generated"; \
 		exit 1; \
 	fi
