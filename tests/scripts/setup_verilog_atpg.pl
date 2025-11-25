@@ -23,19 +23,34 @@ my $dry_run = 0;
 my $verbose = 0;
 my @exclude_dirs = qw(xatpg .git __pycache__ CVS .svn);
 my $help = 0;
+my $test = 0;
 
 # Parse command line options
 GetOptions(
     'dry-run'     => \$dry_run,
     'verbose|v'   => \$verbose,
+    'test|t=s'    => \$test,
     'exclude=s@'  => \@exclude_dirs,
     'help|h'      => \$help,
 ) or die "Error in command line arguments\n";
 
-if ($help || @ARGV == 0) {
+if ($help || (@ARGV == 0 && ! $test)) {
     print_usage();
     exit($help ? 0 : 1);
 }
+
+if ($test) {
+    my $script = $test;
+    $script =~ s=.*/==;
+    open(FANF,">$script-fan");
+    print FANF "read_netlist $test\n";
+    print FANF "run_atpg\n";
+    print FANF "run_logic_sim\n";
+    print FANF "exit\n";
+    exit 0;
+}
+
+my $self = abs_path($0);
 
 my $target_dir = shift @ARGV;
 
@@ -216,6 +231,7 @@ sub create_atpg_makefile {
     print $fh "# Configuration\n";
     print $fh "VERILOG_DIR = ..\n";
     print $fh "FAN_ATPG = fan_atpg\n";
+    print $fh "SETUP_ATPG = $self\n";
     print $fh "VERILOG_FILES = ", join(" ", @verilog_files), "\n";
     print $fh "\n";
     print $fh "# Test targets (one per Verilog file)\n";
@@ -234,7 +250,7 @@ sub create_atpg_makefile {
     print $fh "# Pattern rule for running FAN_ATPG on each Verilog file\n";
     print $fh "%.test: \$(VERILOG_DIR)/%.v\n";
     print $fh "\t\@echo \"Running FAN_ATPG on \$<\"\n";
-    print $fh "\t\$(FAN_ATPG) -i \$< -o \$*.rpt || true\n";
+    print $fh "\t\$(FAN_ATPG) -f \$<-fan </dev/null || true\n";
     print $fh "\t\@touch \$@\n";
     print $fh "\n";
     print $fh "# Individual test targets\n";
@@ -245,7 +261,8 @@ sub create_atpg_makefile {
         print $fh "\n";
         print $fh "$stem.test: \$(VERILOG_DIR)/$file\n";
         print $fh "\t\@echo \"Testing $file...\"\n";
-        print $fh "\t\@\$(FAN_ATPG) -i \$(VERILOG_DIR)/$file -o $stem.rpt 2>&1 | tee $stem.log || true\n";
+        print $fh "\t\@\$(SETUP_ATPG) -test \$(VERILOG_DIR)/$file\n";
+        print $fh "\t\@\$(FAN_ATPG) -f $file-fan 2>&1 </dev/null | tee $stem.log || true\n";
         print $fh "\t\@touch \$@\n";
     }
 

@@ -5,7 +5,7 @@ GATES_TEST = gates-test
 VERILATOR_TEST = verilator-test
 
 # Cell library path for ATPG setup (can be overridden)
-CELL_LIB_PATH ?= $(HOME)/skywater-pdk-libs-sky130_fd_sc_hdll
+CELL_LIB_PATH ?= $(CELL_LIB_ROOT)
 
 # ATPG setup script
 ATPG_SETUP = scripts/setup_verilog_atpg.pl
