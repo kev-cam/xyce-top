@@ -8,7 +8,7 @@ VERILATOR_TEST = verilator-test
 CELL_LIB_PATH ?= $(HOME)/skywater-pdk-libs-sky130_fd_sc_hdll
 
 # ATPG setup script
-ATPG_SETUP = ./setup_verilog_atpg.pl
+ATPG_SETUP = scripts/setup_verilog_atpg.pl
 
 # Xyce
 export XYCE_INSTALL_DIR=/usr/local
