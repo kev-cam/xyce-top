@@ -53,7 +53,7 @@ sub convert_verilog_to_bench {
     open(my $in_fh, '<', $vfile) or die "Cannot open $vfile: $!\n";
     open(my $out_fh, '>', $bfile) or die "Cannot create $bfile: $!\n";
 
-    my ($module_name, @inputs, @outputs);
+    my ($module_name, %signals);
     my $in_module = 0;
 
     # Parse Verilog to extract module name, inputs, and outputs
@@ -72,20 +72,23 @@ sub convert_verilog_to_bench {
 
         next unless $in_module;
 
-        # Extract inputs (handle multiple formats)
-        if ($line =~ /\binput\s+(?:wire\s+)?(\w+)/) {
-            push @inputs, $1 unless grep { $_ eq $1 } @inputs;
+        # Extract outputs first (they take precedence)
+        if ($line =~ /^\s*output\s+(?:wire\s+)?(?:reg\s+)?(\w+)/) {
+            $signals{$1} = 'output';
         }
-
-        # Extract outputs (handle multiple formats)
-        if ($line =~ /\boutput\s+(?:wire\s+)?(?:reg\s+)?(\w+)/) {
-            push @outputs, $1 unless grep { $_ eq $1 } @outputs;
+        # Extract inputs (only if not already marked as output)
+        elsif ($line =~ /^\s*input\s+(?:wire\s+)?(\w+)/) {
+            $signals{$1} = 'input' unless exists $signals{$1};
         }
 
         last if $line =~ /endmodule/;
     }
 
     close($in_fh);
+
+    # Separate signals into inputs and outputs
+    my @inputs = sort grep { $signals{$_} eq 'input' } keys %signals;
+    my @outputs = sort grep { $signals{$_} eq 'output' } keys %signals;
 
     # Determine gate type from module name
     # SkyWater format: sky130_fd_sc_hd__GATETYPE_STRENGTH
