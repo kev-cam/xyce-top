@@ -53,11 +53,10 @@ sub convert_verilog_to_bench {
     open(my $in_fh, '<', $vfile) or die "Cannot open $vfile: $!\n";
     open(my $out_fh, '>', $bfile) or die "Cannot create $bfile: $!\n";
 
-    my ($module_name, @inputs, @outputs, %gates);
+    my ($module_name, %signals, @gates);
     my $in_module = 0;
-    my $gate_count = 0;
 
-    # Parse Verilog
+    # Parse Verilog to extract module name, inputs, outputs, and gates
     while (my $line = <$in_fh>) {
         # Skip comments and blank lines
         $line =~ s/\/\/.*$//;
@@ -73,32 +72,30 @@ sub convert_verilog_to_bench {
 
         next unless $in_module;
 
-        # Extract inputs
-        if ($line =~ /\binput\s+(?:\w+\s+)?(\w+)/) {
-            push @inputs, $1;
+        # Extract outputs first (they take precedence)
+        if ($line =~ /^\s*output\s+(?:wire\s+)?(?:reg\s+)?(\w+)/) {
+            $signals{$1} = 'output';
         }
-
-        # Extract outputs
-        if ($line =~ /\boutput\s+(?:\w+\s+)?(\w+)/) {
-            push @outputs, $1;
+        # Extract inputs (only if not already marked as output)
+        elsif ($line =~ /^\s*input\s+(?:wire\s+)?(\w+)/) {
+            $signals{$1} = 'input' unless exists $signals{$1};
         }
+        # Parse gate instantiations (Verilog primitives: and, or, xor, buf, not, nand, nor, xnor)
+        elsif ($line =~ /^\s*(and|or|xor|buf|not|nand|nor|xnor)\s+\w+\s*\(([^)]+)\)/) {
+            my ($gate_type, $ports) = (uc($1), $2);
 
-        # Parse gate instantiations
-        # Format: gatetype inst_name ( .port(signal), ... );
-        if ($line =~ /^\s*sky130_\w+__(\w+)_\d+\s+\w+\s*\(/) {
-            my $gate_type = uc($1);  # Convert to uppercase
-            my $gate_line = $line;
+            # Parse ports: first is output, rest are inputs
+            my @port_list = split(/\s*,\s*/, $ports);
+            next unless @port_list >= 2;
 
-            # Continue reading if statement spans multiple lines
-            while ($gate_line !~ /\);/ && (my $next = <$in_fh>)) {
-                $gate_line .= $next;
-            }
+            my $out = shift @port_list;  # First port is output
+            my @ins = @port_list;         # Rest are inputs
 
-            my $gate_info = parse_gate_instantiation($gate_line, $gate_type);
-            if ($gate_info) {
-                push @{$gates{$gate_info->{output}}}, $gate_info;
-                $gate_count++;
-            }
+            push @gates, {
+                type => $gate_type,
+                output => $out,
+                inputs => \@ins,
+            };
         }
 
         last if $line =~ /endmodule/;
@@ -106,30 +103,32 @@ sub convert_verilog_to_bench {
 
     close($in_fh);
 
-    # Write BENCH format
+    # Separate signals into inputs and outputs
+    my @inputs = sort grep { $signals{$_} eq 'input' } keys %signals;
+    my @outputs = sort grep { $signals{$_} eq 'output' } keys %signals;
+
+    # Write BENCH format header
     print $out_fh "# $module_name\n";
     print $out_fh "# " . scalar(@inputs) . " inputs\n";
     print $out_fh "# " . scalar(@outputs) . " outputs\n";
-    print $out_fh "# $gate_count gates\n";
+    print $out_fh "# " . scalar(@gates) . " gates\n";
     print $out_fh "\n";
 
     # Write inputs
     foreach my $input (@inputs) {
         print $out_fh "INPUT($input)\n";
     }
-    print $out_fh "\n";
+    print $out_fh "\n" if @inputs;
 
     # Write outputs
     foreach my $output (@outputs) {
         print $out_fh "OUTPUT($output)\n";
     }
-    print $out_fh "\n";
+    print $out_fh "\n" if @outputs;
 
     # Write gates
-    foreach my $output (sort keys %gates) {
-        foreach my $gate (@{$gates{$output}}) {
-            write_bench_gate($out_fh, $gate);
-        }
+    foreach my $gate (@gates) {
+        write_bench_gate($out_fh, $gate);
     }
 
     close($out_fh);
