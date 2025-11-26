@@ -1,2 +1,37 @@
+# Build artifacts
 *.so
+*.o
+*.a
+
+# Generated wrapper files from verilog2xyce.pl
 simple_inv_xyce.*
+
+# Test build directories (contain generated artifacts)
+tests/gates-test/
+tests/verilator-test/*.so
+tests/verilator-test/obj_dir/
+tests/verilator-test/*.prn
+tests/verilator-test/*.log
+
+# Verilator generated files
+obj_dir/
+
+# Test outputs
+*.prn
+*.log
+*.png
+
+# Python
+__pycache__/
+*.pyc
+
+# Editor
+*.swp
+*~
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
