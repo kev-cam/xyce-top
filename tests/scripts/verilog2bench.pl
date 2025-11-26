@@ -53,11 +53,10 @@ sub convert_verilog_to_bench {
     open(my $in_fh, '<', $vfile) or die "Cannot open $vfile: $!\n";
     open(my $out_fh, '>', $bfile) or die "Cannot create $bfile: $!\n";
 
-    my ($module_name, @inputs, @outputs, %gates);
+    my ($module_name, @inputs, @outputs);
     my $in_module = 0;
-    my $gate_count = 0;
 
-    # Parse Verilog
+    # Parse Verilog to extract module name, inputs, and outputs
     while (my $line = <$in_fh>) {
         # Skip comments and blank lines
         $line =~ s/\/\/.*$//;
@@ -73,32 +72,14 @@ sub convert_verilog_to_bench {
 
         next unless $in_module;
 
-        # Extract inputs
-        if ($line =~ /\binput\s+(?:\w+\s+)?(\w+)/) {
-            push @inputs, $1;
+        # Extract inputs (handle multiple formats)
+        if ($line =~ /\binput\s+(?:wire\s+)?(\w+)/) {
+            push @inputs, $1 unless grep { $_ eq $1 } @inputs;
         }
 
-        # Extract outputs
-        if ($line =~ /\boutput\s+(?:\w+\s+)?(\w+)/) {
-            push @outputs, $1;
-        }
-
-        # Parse gate instantiations
-        # Format: gatetype inst_name ( .port(signal), ... );
-        if ($line =~ /^\s*sky130_\w+__(\w+)_\d+\s+\w+\s*\(/) {
-            my $gate_type = uc($1);  # Convert to uppercase
-            my $gate_line = $line;
-
-            # Continue reading if statement spans multiple lines
-            while ($gate_line !~ /\);/ && (my $next = <$in_fh>)) {
-                $gate_line .= $next;
-            }
-
-            my $gate_info = parse_gate_instantiation($gate_line, $gate_type);
-            if ($gate_info) {
-                push @{$gates{$gate_info->{output}}}, $gate_info;
-                $gate_count++;
-            }
+        # Extract outputs (handle multiple formats)
+        if ($line =~ /\boutput\s+(?:wire\s+)?(?:reg\s+)?(\w+)/) {
+            push @outputs, $1 unless grep { $_ eq $1 } @outputs;
         }
 
         last if $line =~ /endmodule/;
@@ -106,29 +87,52 @@ sub convert_verilog_to_bench {
 
     close($in_fh);
 
-    # Write BENCH format
+    # Determine gate type from module name
+    # SkyWater format: sky130_fd_sc_hd__GATETYPE_STRENGTH
+    my $gate_type = 'BUF';  # Default
+    if ($module_name =~ /sky130_\w+_\w+_\w+__(\w+)_\d+/) {
+        $gate_type = uc($1);
+    } elsif ($module_name =~ /__(\w+)_/) {
+        $gate_type = uc($1);
+    } elsif ($module_name =~ /(\w+)_\d+$/) {
+        $gate_type = uc($1);
+    }
+
+    # Map to BENCH gate type
+    my $bench_type = map_gate_type($gate_type);
+
+    # Write BENCH format header
     print $out_fh "# $module_name\n";
     print $out_fh "# " . scalar(@inputs) . " inputs\n";
     print $out_fh "# " . scalar(@outputs) . " outputs\n";
-    print $out_fh "# $gate_count gates\n";
+    print $out_fh "# 1 gate ($bench_type)\n";
     print $out_fh "\n";
 
     # Write inputs
     foreach my $input (@inputs) {
         print $out_fh "INPUT($input)\n";
     }
-    print $out_fh "\n";
+    print $out_fh "\n" if @inputs;
 
     # Write outputs
     foreach my $output (@outputs) {
         print $out_fh "OUTPUT($output)\n";
     }
-    print $out_fh "\n";
+    print $out_fh "\n" if @outputs;
 
-    # Write gates
-    foreach my $output (sort keys %gates) {
-        foreach my $gate (@{$gates{$output}}) {
-            write_bench_gate($out_fh, $gate);
+    # Write the gate equation
+    # The module itself IS the gate
+    if (@outputs && @inputs) {
+        my $output = $outputs[0];  # Primary output
+
+        if ($bench_type eq 'NOT' || $bench_type eq 'BUF') {
+            # Single input gates
+            my $op = ($bench_type eq 'NOT') ? 'NOT' : 'BUFF';
+            print $out_fh "$output = $op($inputs[0])\n";
+        } else {
+            # Multi-input gates
+            my $input_list = join(', ', @inputs);
+            print $out_fh "$output = $bench_type($input_list)\n";
         }
     }
 
