@@ -53,10 +53,10 @@ sub convert_verilog_to_bench {
     open(my $in_fh, '<', $vfile) or die "Cannot open $vfile: $!\n";
     open(my $out_fh, '>', $bfile) or die "Cannot create $bfile: $!\n";
 
-    my ($module_name, %signals);
+    my ($module_name, %signals, @gates);
     my $in_module = 0;
 
-    # Parse Verilog to extract module name, inputs, and outputs
+    # Parse Verilog to extract module name, inputs, outputs, and gates
     while (my $line = <$in_fh>) {
         # Skip comments and blank lines
         $line =~ s/\/\/.*$//;
@@ -80,6 +80,23 @@ sub convert_verilog_to_bench {
         elsif ($line =~ /^\s*input\s+(?:wire\s+)?(\w+)/) {
             $signals{$1} = 'input' unless exists $signals{$1};
         }
+        # Parse gate instantiations (Verilog primitives: and, or, xor, buf, not, nand, nor, xnor)
+        elsif ($line =~ /^\s*(and|or|xor|buf|not|nand|nor|xnor)\s+\w+\s*\(([^)]+)\)/) {
+            my ($gate_type, $ports) = (uc($1), $2);
+
+            # Parse ports: first is output, rest are inputs
+            my @port_list = split(/\s*,\s*/, $ports);
+            next unless @port_list >= 2;
+
+            my $out = shift @port_list;  # First port is output
+            my @ins = @port_list;         # Rest are inputs
+
+            push @gates, {
+                type => $gate_type,
+                output => $out,
+                inputs => \@ins,
+            };
+        }
 
         last if $line =~ /endmodule/;
     }
@@ -90,25 +107,11 @@ sub convert_verilog_to_bench {
     my @inputs = sort grep { $signals{$_} eq 'input' } keys %signals;
     my @outputs = sort grep { $signals{$_} eq 'output' } keys %signals;
 
-    # Determine gate type from module name
-    # SkyWater format: sky130_fd_sc_hd__GATETYPE_STRENGTH
-    my $gate_type = 'BUF';  # Default
-    if ($module_name =~ /sky130_\w+_\w+_\w+__(\w+)_\d+/) {
-        $gate_type = uc($1);
-    } elsif ($module_name =~ /__(\w+)_/) {
-        $gate_type = uc($1);
-    } elsif ($module_name =~ /(\w+)_\d+$/) {
-        $gate_type = uc($1);
-    }
-
-    # Map to BENCH gate type
-    my $bench_type = map_gate_type($gate_type);
-
     # Write BENCH format header
     print $out_fh "# $module_name\n";
     print $out_fh "# " . scalar(@inputs) . " inputs\n";
     print $out_fh "# " . scalar(@outputs) . " outputs\n";
-    print $out_fh "# 1 gate ($bench_type)\n";
+    print $out_fh "# " . scalar(@gates) . " gates\n";
     print $out_fh "\n";
 
     # Write inputs
@@ -123,20 +126,9 @@ sub convert_verilog_to_bench {
     }
     print $out_fh "\n" if @outputs;
 
-    # Write the gate equation
-    # The module itself IS the gate
-    if (@outputs && @inputs) {
-        my $output = $outputs[0];  # Primary output
-
-        if ($bench_type eq 'NOT' || $bench_type eq 'BUF') {
-            # Single input gates
-            my $op = ($bench_type eq 'NOT') ? 'NOT' : 'BUFF';
-            print $out_fh "$output = $op($inputs[0])\n";
-        } else {
-            # Multi-input gates
-            my $input_list = join(', ', @inputs);
-            print $out_fh "$output = $bench_type($input_list)\n";
-        }
+    # Write gates
+    foreach my $gate (@gates) {
+        write_bench_gate($out_fh, $gate);
     }
 
     close($out_fh);
