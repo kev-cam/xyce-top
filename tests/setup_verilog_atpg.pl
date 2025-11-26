@@ -438,78 +438,134 @@ sub generate_mdt_model {
     my @inputs = @$inputs_ref;
     my @outputs = @$outputs_ref;
 
-    # Build port list
-    my @all_ports = (@inputs, @outputs);
+    return unless @outputs;  # Need at least one output
+
+    my $output = $outputs[0];  # Primary output
+
+    # Build port list - MDT format is (outputs, inputs)
+    my @all_ports = (@outputs, @inputs);
     my $port_list = join(", ", @all_ports);
 
     print $fh "model $name ($port_list) (\n";
 
-    # Declare inputs
+    # Declare inputs - format: input (A, B, ...) ()
     if (@inputs) {
-        print $fh "  input " . join(" ", @inputs) . "\n";
-    }
-
-    # Declare outputs
-    if (@outputs) {
-        print $fh "  output " . join(" ", @outputs) . "\n";
+        print $fh "  input (" . join(", ", @inputs) . ") ()\n";
     }
 
     # Generate logic based on gate type
-    my $output = $outputs[0] || 'Y';  # Default output name
+    # Use primitives in format: primitive = _operation InstanceName (inputs..., output);
 
     if ($type eq 'INV' && @inputs >= 1) {
-        print $fh "  $output = _inv(" . $inputs[0] . ")\n";
+        # Inverter: primitive = _inv I0 (A, Y);
+        print $fh "  output ($output) (\n";
+        print $fh "    primitive = _inv I0 (" . $inputs[0] . ", $output);\n";
+        print $fh "  )\n";
     }
     elsif ($type eq 'BUF' && @inputs >= 1) {
-        print $fh "  $output = " . $inputs[0] . "\n";
+        # Buffer: primitive = _buf I0 (A, Y);
+        print $fh "  output ($output) (\n";
+        print $fh "    primitive = _buf I0 (" . $inputs[0] . ", $output);\n";
+        print $fh "  )\n";
     }
     elsif ($type eq 'AND') {
-        my $expr = join(", ", @inputs);
-        print $fh "  $output = _and($expr)\n";
+        # AND gate: primitive = _and I0 (A, B, ..., Y);
+        my $input_list = join(", ", @inputs);
+        print $fh "  output ($output) (\n";
+        print $fh "    primitive = _and I0 ($input_list, $output);\n";
+        print $fh "  )\n";
     }
     elsif ($type eq 'NAND') {
-        my $expr = join(", ", @inputs);
-        print $fh "  intern n1\n";
-        print $fh "  n1 = _and($expr)\n";
-        print $fh "  $output = _inv(n1)\n";
+        # NAND gate: primitive = _nand I0 (A, B, ..., Y);
+        my $input_list = join(", ", @inputs);
+        print $fh "  output ($output) (\n";
+        print $fh "    primitive = _nand I0 ($input_list, $output);\n";
+        print $fh "  )\n";
     }
     elsif ($type eq 'OR') {
-        my $expr = join(", ", @inputs);
-        print $fh "  $output = _or($expr)\n";
+        # OR gate: primitive = _or I0 (A, B, ..., Y);
+        my $input_list = join(", ", @inputs);
+        print $fh "  output ($output) (\n";
+        print $fh "    primitive = _or I0 ($input_list, $output);\n";
+        print $fh "  )\n";
     }
     elsif ($type eq 'NOR') {
-        my $expr = join(", ", @inputs);
-        print $fh "  intern n1\n";
-        print $fh "  n1 = _or($expr)\n";
-        print $fh "  $output = _inv(n1)\n";
+        # NOR gate: primitive = _nor I0 (A, B, ..., Y);
+        my $input_list = join(", ", @inputs);
+        print $fh "  output ($output) (\n";
+        print $fh "    primitive = _nor I0 ($input_list, $output);\n";
+        print $fh "  )\n";
     }
     elsif ($type eq 'XOR') {
-        my $expr = join(", ", @inputs);
-        print $fh "  $output = _xor($expr)\n";
+        # XOR gate: primitive = _xor I0 (A, B, ..., Y);
+        my $input_list = join(", ", @inputs);
+        print $fh "  output ($output) (\n";
+        print $fh "    primitive = _xor I0 ($input_list, $output);\n";
+        print $fh "  )\n";
     }
     elsif ($type eq 'XNOR') {
-        my $expr = join(", ", @inputs);
-        print $fh "  intern n1\n";
-        print $fh "  n1 = _xor($expr)\n";
-        print $fh "  $output = _inv(n1)\n";
+        # XNOR gate: primitive = _xnor I0 (A, B, ..., Y);
+        my $input_list = join(", ", @inputs);
+        print $fh "  output ($output) (\n";
+        print $fh "    primitive = _xnor I0 ($input_list, $output);\n";
+        print $fh "  )\n";
+    }
+    elsif ($type eq 'AOI' && @inputs >= 3) {
+        # AOI21: AND-OR-Invert with internal node
+        # Assume first 2 inputs are ANDed, then OR with remaining, then invert
+        my @and_inputs = ($inputs[0], $inputs[1]);
+        my @or_inputs = @inputs[2..$#inputs];
+
+        print $fh "  output ($output) ()\n";
+        print $fh "  intern(n1) (\n";
+        print $fh "    primitive = _and I0 (" . join(", ", @and_inputs) . ", n1);\n";
+        print $fh "    primitive = _nor I1 (" . join(", ", @or_inputs, "n1") . ", $output);\n";
+        print $fh "  )\n";
+    }
+    elsif ($type eq 'OAI' && @inputs >= 3) {
+        # OAI21: OR-AND-Invert with internal node
+        # Assume first 2 inputs are ORed, then AND with remaining, then invert
+        my @or_inputs = ($inputs[0], $inputs[1]);
+        my @and_inputs = @inputs[2..$#inputs];
+
+        print $fh "  output ($output) ()\n";
+        print $fh "  intern(n1) (\n";
+        print $fh "    primitive = _or I0 (" . join(", ", @or_inputs) . ", n1);\n";
+        print $fh "    primitive = _nand I1 (" . join(", ", @and_inputs, "n1") . ", $output);\n";
+        print $fh "  )\n";
     }
     elsif ($type eq 'MUX' && @inputs >= 3) {
+        # MUX: primitive = _mux I0 (sel, in0, in1, ..., Y);
         # Assume last input is select
-        my $sel = pop @inputs;
-        print $fh "  $output = _mux($sel, " . join(", ", @inputs) . ")\n";
+        my @data_inputs = @inputs[0..$#inputs-1];
+        my $sel = $inputs[-1];
+        print $fh "  output ($output) (\n";
+        print $fh "    primitive = _mux I0 ($sel, " . join(", ", @data_inputs) . ", $output);\n";
+        print $fh "  )\n";
     }
-    elsif ($type eq 'DFF' && @inputs >= 1) {
-        # Simple D flip-flop
+    elsif ($type eq 'DFF' && @inputs >= 2) {
+        # D flip-flop: primitive = _dff I0 (D, CLK, Q);
         my $d = $inputs[0];
-        my $clk = $inputs[1] || 'CLK';
-        print $fh "  $output = _dff($d, $clk)\n";
+        my $clk = $inputs[1];
+        print $fh "  output ($output) (\n";
+        print $fh "    primitive = _dff I0 ($d, $clk, $output);\n";
+        print $fh "  )\n";
+    }
+    elsif ($type eq 'LATCH' && @inputs >= 2) {
+        # D latch: primitive = _dlat I0 (D, G, Q);
+        my $d = $inputs[0];
+        my $g = $inputs[1];
+        print $fh "  output ($output) (\n";
+        print $fh "    primitive = _dlat I0 ($d, $g, $output);\n";
+        print $fh "  )\n";
     }
     else {
-        # Default: treat as buffer for unknown types
-        print $fh "  // Unknown gate type: $type\n";
-        if (@inputs && @outputs) {
-            print $fh "  $output = " . $inputs[0] . "\n";
+        # Unknown gate type - default to buffer
+        print $fh "  output ($output) (\n";
+        if (@inputs) {
+            print $fh "    primitive = _buf I0 (" . $inputs[0] . ", $output);\n";
         }
+        print $fh "  )\n";
     }
 
     print $fh ")\n";
