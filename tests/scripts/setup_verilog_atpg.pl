@@ -76,7 +76,8 @@ if ($test) {
     exit 0;
 }
 
-my $self = abs_path($0);
+my $self     = abs_path($0);
+my $self_dir = dirname($self);
 
 my $target_dir = shift @ARGV;
 
@@ -102,20 +103,20 @@ print "=" x 80, "\n";
 
 # Find all directories with Verilog files
 print "\nSearching for Verilog files...\n";
-my @verilog_dirs = find_verilog_directories($target_dir, \@exclude_dirs);
-
-unless (@verilog_dirs) {
+our %verilog_dirs;
+find_verilog_directories($target_dir);
+unless (keys %verilog_dirs) {
     print "\nNo Verilog files found in $target_dir\n";
     exit 0;
 }
 
-my $dir_count = scalar @verilog_dirs;
+my $dir_count = scalar keys %verilog_dirs;
 print "\nFound $dir_count ", ($dir_count == 1 ? "directory" : "directories"),
       " containing Verilog files\n";
 
 # Setup ATPG for each directory
 my $success_count = 0;
-foreach my $verilog_dir (@verilog_dirs) {
+foreach my $verilog_dir (keys %verilog_dirs) {
     if (setup_atpg_directory($verilog_dir, $dry_run)) {
         $success_count++;
     }
@@ -139,8 +140,6 @@ if ($dry_run) {
 print "=" x 80, "\n";
 
 exit($success_count == $dir_count ? 0 : 1);
-
-my %verilog_dirs;
 
 # Subroutines
 
@@ -174,8 +173,6 @@ sub find_verilog_directories {
     };
 
     find($wanted, $root_path);
-
-    return sort keys %verilog_dirs;
 }
 
 sub setup_atpg_directory {
@@ -256,7 +253,7 @@ sub create_atpg_makefile {
     print $fh "FAN_ATPG = fan_atpg\n";
     print $fh "SETUP_ATPG = $self\n";
     print $fh "ATALANTA = atalanta\n";
-    print $fh "VER2BENCH = ../../scripts/verilog2bench.pl\n";
+    print $fh "VER2BENCH = $self_dir/verilog2bench.pl\n";
     print $fh "VERILOG_FILES = ", join(" ", @verilog_files), "\n";
     print $fh "BENCH_FILES = ", join(" ", map { "$_.bench" } @stems), "\n";
     print $fh "\n";
