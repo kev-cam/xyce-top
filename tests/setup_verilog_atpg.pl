@@ -397,6 +397,9 @@ sub write_cleaned_verilog {
                 next;
             }
 
+            # Skip supply declarations (supply0/supply1 for power/ground)
+            next if $line =~ /^\s*supply[01]\s/;
+
             # Filter out power/body pin declarations in the module body
             if ($line =~ /^\s*(input|output|inout)\s/) {
                 my $cleaned_line = $line;
