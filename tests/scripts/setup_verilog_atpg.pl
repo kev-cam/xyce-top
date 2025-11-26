@@ -256,7 +256,9 @@ sub create_atpg_makefile {
     print $fh "FAN_ATPG = fan_atpg\n";
     print $fh "SETUP_ATPG = $self\n";
     print $fh "ATALANTA = atalanta\n";
+    print $fh "VER2BENCH = ../../scripts/verilog2bench.pl\n";
     print $fh "VERILOG_FILES = ", join(" ", @verilog_files), "\n";
+    print $fh "BENCH_FILES = ", join(" ", map { "$_.bench" } @stems), "\n";
     print $fh "\n";
     print $fh "# Test targets\n";
     print $fh "FAN_TARGETS = ", join(" ", map { "$_.fan-log" } @stems), "\n";
@@ -280,6 +282,11 @@ sub create_atpg_makefile {
     print $fh "test: fan atalanta\n";
     print $fh "\t\@echo \"All ATPG tests completed\"\n";
     print $fh "\n";
+    print $fh "# Convert Verilog to BENCH format for Atalanta\n";
+    print $fh "%.bench: %.v\n";
+    print $fh "\t\@echo \"Converting \$< to BENCH format...\"\n";
+    print $fh "\t\@\$(VER2BENCH) \$< \$@ || true\n";
+    print $fh "\n";
     print $fh "# Pattern rules for FAN_ATPG\n";
     print $fh "%.fan-log: %.v\n";
     print $fh "\t\@echo \"Running FAN_ATPG on \$<\"\n";
@@ -287,8 +294,8 @@ sub create_atpg_makefile {
     print $fh "\t\$(FAN_ATPG) -f \$(patsubst %-log,%,\$\@) </dev/null || true\n";
     print $fh "\t\@touch \$@\n";
     print $fh "\n";
-    print $fh "# Pattern rules for Atalanta (uses cleaned Verilog)\n";
-    print $fh "%.atalanta: %.v\n";
+    print $fh "# Pattern rules for Atalanta (uses BENCH format)\n";
+    print $fh "%.atalanta: %.bench\n";
     print $fh "\t\@echo \"Running Atalanta on \$<\"\n";
     print $fh "\t\@\$(ATALANTA) \$< > \$*.atalanta.rpt 2>&1 || true\n";
     print $fh "\t\@touch \$@\n";
@@ -309,18 +316,17 @@ sub create_atpg_makefile {
 
     for (my $i = 0; $i < @stems; $i++) {
         my $stem = $stems[$i];
-        my $file = $verilog_files[$i];
         print $fh "\n";
-        print $fh "$stem.atalanta: $file\n";
-        print $fh "\t\@echo \"Atalanta: Testing $file...\"\n";
-        print $fh "\t\@\$(ATALANTA) $file > $stem.atalanta.rpt 2>&1 || true\n";
+        print $fh "$stem.atalanta: $stem.bench\n";
+        print $fh "\t\@echo \"Atalanta: Testing $stem.bench...\"\n";
+        print $fh "\t\@\$(ATALANTA) $stem.bench > $stem.atalanta.rpt 2>&1 || true\n";
         print $fh "\t\@touch \$@\n";
     }
 
     print $fh "\n";
     print $fh "# Clean generated files\n";
     print $fh "clean:\n";
-    print $fh "\trm -f \$(FAN_TARGETS) \$(ATALANTA_TARGETS) *.rpt *.log *.atpg *.patterns\n";
+    print $fh "\trm -f \$(FAN_TARGETS) \$(ATALANTA_TARGETS) \$(BENCH_FILES) *.rpt *.log *.atpg *.patterns\n";
     print $fh "\n";
     print $fh "# Show help\n";
     print $fh "help:\n";
