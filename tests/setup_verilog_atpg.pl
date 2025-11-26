@@ -371,6 +371,14 @@ sub parse_verilog_module {
     my ($module_name, @inputs, @outputs, $gate_type);
     my $in_module = 0;
 
+    # Power and substrate pins to exclude (not logic signals)
+    my %exclude_pins = (
+        'VPWR' => 1,  # Power supply
+        'VGND' => 1,  # Ground
+        'VPB'  => 1,  # P-well/substrate bias
+        'VNB'  => 1,  # N-well bias
+    );
+
     while (my $line = <$fh>) {
         # Remove comments
         $line =~ s/\/\/.*$//;
@@ -388,10 +396,12 @@ sub parse_verilog_module {
         # Extract ports
         if ($in_module) {
             if ($line =~ /\binput\s+(?:wire\s+)?(?:\[.*?\]\s+)?(\w+)/) {
-                push @inputs, $1;
+                my $pin = $1;
+                push @inputs, $pin unless $exclude_pins{$pin};
             }
             elsif ($line =~ /\boutput\s+(?:wire\s+)?(?:reg\s+)?(?:\[.*?\]\s+)?(\w+)/) {
-                push @outputs, $1;
+                my $pin = $1;
+                push @outputs, $pin unless $exclude_pins{$pin};
             }
             elsif ($line =~ /endmodule/) {
                 last;
