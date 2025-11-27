@@ -89,9 +89,9 @@ $(STANDALONE_TEST): verilate
 	@echo '    $(VERILATOR_CLASS)* top = new $(VERILATOR_CLASS);' >> test_standalone.cpp
 	@echo '    std::cout << "Testing $(MODULE_NAME) inverter:" << std::endl;' >> test_standalone.cpp
 	@echo '    for (int i = 0; i < 10; i++) {' >> test_standalone.cpp
-	@echo '        top->A = (i % 2);' >> test_standalone.cpp
+	@echo '        top->in = (i % 2);' >> test_standalone.cpp
 	@echo '        top->eval();' >> test_standalone.cpp
-	@echo '        std::cout << "A=" << (int)top->A << " Y=" << (int)top->Y << std::endl;' >> test_standalone.cpp
+	@echo '        std::cout << "in=" << (int)top->in << " out=" << (int)top->out << std::endl;' >> test_standalone.cpp
 	@echo '    }' >> test_standalone.cpp
 	@echo '    delete top;' >> test_standalone.cpp
 	@echo '    return 0;' >> test_standalone.cpp
