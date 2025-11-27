@@ -1,21 +1,26 @@
 # Makefile for gates-test (original C++ inverter example)
 
+ifeq ($(XYCE_INSTALL_DIR),)
+  XYCE_INSTALL_DIR=/usr/local
+endif
+
 # Paths
 XYCE_BIN = $(XYCE_INSTALL_DIR)/bin/Xyce
 XYCE_INC = $(XYCE_INSTALL_DIR)/include
 XYCE_SRC = ../../src/DeviceModelPKG/Core
 TRILINOS_INC = $(TRILINOS_INSTALL_DIR)/include
 PARENT_DIR = ..
+CXX_OPT_FLAGS=-g -O0
 
 # Compiler settings
 CXX = g++
-CXXFLAGS = -fPIC -std=c++11 -I$(PARENT_DIR) -I$(XYCE_SRC) -I$(XYCE_INC) -I$(TRILINOS_INC)
+CXXFLAGS = $(CXX_OPT_FLAGS) -fPIC -std=c++11 -I$(PARENT_DIR) -I$(XYCE_SRC) -I$(XYCE_INC) -I$(TRILINOS_INC)
 LDFLAGS = -shared
 
 # Targets
 TARGET = gates.so
 SOURCES = gates.C $(PARENT_DIR)/xbridge.C
-NETLIST = inv.cir
+NETLIST = inv-string.cir
 OUTPUT = inv.cir.prn
 
 .PHONY: all build test clean plot
@@ -42,8 +47,8 @@ test: $(TARGET)
 
 # Generate plot
 plot: $(OUTPUT)
-	@if [ -f ../tools/plot_xyce.sh ]; then \
-		../tools/plot_xyce.sh $(OUTPUT); \
+	@if [ -f ../scripts/plot_xyce.sh ]; then \
+		 ../scripts/plot_xyce.sh $(OUTPUT); \
 	else \
 		echo "Plotting script not found"; \
 	fi
