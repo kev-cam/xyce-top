@@ -22,6 +22,7 @@ VERILOG_SRC = simple_inv.v
 MODULE_NAME = simple_inv
 VERILATOR_CLASS = Vsimple_inv
 TARGET = simple_inv_xyce.so
+STANDALONE_TEST = test_standalone
 BRIDGE_SRC = simple_inv_xyce.C
 BRIDGE_HDR = simple_inv_xyce.h
 WRAPPER_CIR = simple_inv_xyce.cir
@@ -31,7 +32,7 @@ NETLIST = test_simple_inv.cir
 OUTPUT = test_simple_inv.cir.prn
 VERILOG2XYCE = ../scripts/verilog2xyce.pl
 
-.PHONY: all build verilate test clean plot help generate
+.PHONY: all build verilate test clean plot help generate standalone
 
 all: build
 
@@ -77,6 +78,31 @@ test: build
 		exit 1; \
 	fi
 
+# Build and run standalone Verilator test (no Xyce)
+$(STANDALONE_TEST): verilate
+	@echo "Building standalone test..."
+	@echo '#include <iostream>' > test_standalone.cpp
+	@echo '#include "$(VERILATOR_CLASS).h"' >> test_standalone.cpp
+	@echo '#include "verilated.h"' >> test_standalone.cpp
+	@echo 'int main(int argc, char** argv) {' >> test_standalone.cpp
+	@echo '    Verilated::commandArgs(argc, argv);' >> test_standalone.cpp
+	@echo '    $(VERILATOR_CLASS)* top = new $(VERILATOR_CLASS);' >> test_standalone.cpp
+	@echo '    std::cout << "Testing $(MODULE_NAME) inverter:" << std::endl;' >> test_standalone.cpp
+	@echo '    for (int i = 0; i < 10; i++) {' >> test_standalone.cpp
+	@echo '        top->A = (i % 2);' >> test_standalone.cpp
+	@echo '        top->eval();' >> test_standalone.cpp
+	@echo '        std::cout << "A=" << (int)top->A << " Y=" << (int)top->Y << std::endl;' >> test_standalone.cpp
+	@echo '    }' >> test_standalone.cpp
+	@echo '    delete top;' >> test_standalone.cpp
+	@echo '    return 0;' >> test_standalone.cpp
+	@echo '}' >> test_standalone.cpp
+	$(CXX) $(CXXFLAGS) -o $(STANDALONE_TEST) test_standalone.cpp \
+		$(VERILATOR_SRCS) $(VERILATOR_LIB)
+
+standalone: $(STANDALONE_TEST)
+	@echo "Running standalone Verilator test..."
+	./$(STANDALONE_TEST)
+
 # Generate plot
 plot: $(OUTPUT)
 	@if [ -f ../tools/plot_xyce.sh ]; then \
@@ -89,16 +115,18 @@ plot: $(OUTPUT)
 clean:
 	rm -f $(TARGET) $(OUTPUT) *.png
 	rm -f $(BRIDGE_SRC) $(BRIDGE_HDR) $(WRAPPER_CIR)
+	rm -f $(STANDALONE_TEST) test_standalone.cpp
 	rm -rf obj_dir
 
 help:
 	@echo "Verilator Test Makefile"
 	@echo ""
 	@echo "Targets:"
-	@echo "  make build     - Generate wrappers, run Verilator and build shared library"
-	@echo "  make generate  - Generate Xyce wrapper files using verilog2xyce.pl"
-	@echo "  make verilate  - Run Verilator only (generate C++)"
-	@echo "  make test      - Run Xyce simulation"
-	@echo "  make plot      - Generate waveform plot"
-	@echo "  make clean     - Remove all generated files"
-	@echo "  make all       - Full build (default)"
+	@echo "  make build      - Generate wrappers, run Verilator and build shared library"
+	@echo "  make generate   - Generate Xyce wrapper files using verilog2xyce.pl"
+	@echo "  make verilate   - Run Verilator only (generate C++)"
+	@echo "  make test       - Run Xyce simulation with external device"
+	@echo "  make standalone - Build and run standalone Verilator test (no Xyce)"
+	@echo "  make plot       - Generate waveform plot"
+	@echo "  make clean      - Remove all generated files"
+	@echo "  make all        - Full build (default)"
