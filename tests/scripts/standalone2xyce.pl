@@ -136,7 +136,7 @@ sub generate_xyce_circuit {
 
     # Include the subcircuit (assuming it's in a separate file)
     print $fh "* Include the $module subcircuit\n";
-    print $fh "*.INCLUDE ${module}.cir\n";
+    print $fh ".INCLUDE ${module}.cir\n";
     print $fh "\n";
 
     # Instantiate the subcircuit
