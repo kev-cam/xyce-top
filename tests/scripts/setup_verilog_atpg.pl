@@ -76,6 +76,13 @@ if ($test) {
     exit 0;
 }
 
+our $skip_dir = "_";
+foreach my $d (@exclude_dirs) {
+    $skip_dir .= "|$d";
+}
+$skip_dir =~ s=.=/(=;
+$skip_dir .= ")(/|\$)";
+
 my $self     = abs_path($0);
 my $self_dir = dirname($self);
 
@@ -144,26 +151,18 @@ exit($success_count == $dir_count ? 0 : 1);
 # Subroutines
 
 sub find_verilog_directories {
-    my ($root_path, $exclude_ref) = @_;
-    my %exclude_hash = map { $_ => 1 } @$exclude_ref;
+    my ($root_path) = @_;
 
     my $wanted = sub {
         my $file = $_;
-        my $dir = $File::Find::dir;
-
-        # Skip excluded directories
-        if (-d $file) {
-            foreach my $excluded (@$exclude_ref) {
-                if ($file eq $excluded || $dir =~ /\Q$excluded\E/) {
-                    $File::Find::prune = 1;
-                    return;
-                }
-            }
-        }
 	
         # Look for .v files
         if (-f $file && $file =~ /$filter\.v$/) {
-	    $file =~ s=.*/==;
+
+	    # Skip excluded directories
+	    my $dir = $File::Find::dir;
+	    return if ($dir =~ /$skip_dir/);
+        
 	    if (defined ($_ = $verilog_dirs{$dir})) {
 		$verilog_dirs{$dir} = $_.",$file";
 	    } else {
@@ -294,7 +293,7 @@ sub create_atpg_makefile {
     print $fh "# Pattern rules for Atalanta (uses BENCH format)\n";
     print $fh "%.atalanta: %.bench\n";
     print $fh "\t\@echo \"Running Atalanta on \$<\"\n";
-    print $fh "\t\@\$(ATALANTA) \$< > \$*.atalanta.rpt 2>&1 || true\n";
+    print $fh "\t\@\$(ATALANTA) -t \$*.atalanta.pat \$< > \$*.atalanta.rpt 2>&1 || true\n";
     print $fh "\t\@touch \$@\n";
     print $fh "\n";
     print $fh "# Individual FAN_ATPG targets\n";
@@ -316,7 +315,7 @@ sub create_atpg_makefile {
         print $fh "\n";
         print $fh "$stem.atalanta: $stem.bench\n";
         print $fh "\t\@echo \"Atalanta: Testing $stem.bench...\"\n";
-        print $fh "\t\@\$(ATALANTA) $stem.bench > $stem.atalanta.rpt 2>&1 || true\n";
+        print $fh "\t\@\$(ATALANTA) -t $stem.atalanta.pat  $stem.bench > $stem.atalanta.rpt 2>&1 || true\n";
         print $fh "\t\@touch \$@\n";
     }
 
