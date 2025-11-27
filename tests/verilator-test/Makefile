@@ -82,16 +82,21 @@ test: build
 $(STANDALONE_TEST): verilate
 	@echo "Building standalone test..."
 	@echo '#include <iostream>' > test_standalone.cpp
+	@echo '#include <iomanip>' >> test_standalone.cpp
 	@echo '#include "$(VERILATOR_CLASS).h"' >> test_standalone.cpp
 	@echo '#include "verilated.h"' >> test_standalone.cpp
 	@echo 'int main(int argc, char** argv) {' >> test_standalone.cpp
 	@echo '    Verilated::commandArgs(argc, argv);' >> test_standalone.cpp
 	@echo '    $(VERILATOR_CLASS)* top = new $(VERILATOR_CLASS);' >> test_standalone.cpp
-	@echo '    std::cout << "Testing $(MODULE_NAME) inverter:" << std::endl;' >> test_standalone.cpp
+	@echo '    double time_ns = 0.0;' >> test_standalone.cpp
+	@echo '    double time_step = 1.0;  // 1ns per step' >> test_standalone.cpp
+	@echo '    std::cout << "# Testing $(MODULE_NAME)" << std::endl;' >> test_standalone.cpp
+	@echo '    std::cout << "# time(ns) in out" << std::endl;' >> test_standalone.cpp
 	@echo '    for (int i = 0; i < 10; i++) {' >> test_standalone.cpp
 	@echo '        top->in = (i % 2);' >> test_standalone.cpp
 	@echo '        top->eval();' >> test_standalone.cpp
-	@echo '        std::cout << "in=" << (int)top->in << " out=" << (int)top->out << std::endl;' >> test_standalone.cpp
+	@echo '        std::cout << std::fixed << std::setprecision(2) << time_ns << " " << (int)top->in << " " << (int)top->out << std::endl;' >> test_standalone.cpp
+	@echo '        time_ns += time_step;' >> test_standalone.cpp
 	@echo '    }' >> test_standalone.cpp
 	@echo '    delete top;' >> test_standalone.cpp
 	@echo '    return 0;' >> test_standalone.cpp
