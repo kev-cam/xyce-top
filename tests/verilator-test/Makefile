@@ -29,7 +29,7 @@ WRAPPER_CIR = simple_inv.cir
 VERILATOR_SRCS = $(VERILATOR_INC)/verilated.cpp $(VERILATOR_INC)/verilated_threads.cpp
 VERILATOR_LIB = obj_dir/$(VERILATOR_CLASS)__ALL.a
 NETLIST = test_simple_inv.cir
-OUTPUT = test_simple_inv.cir.prn
+OUTPUT = test.cir.prn
 VERILOG2XYCE = ../scripts/verilog2xyce.pl
 
 .PHONY: all build verilate test clean plot help generate standalone
@@ -113,8 +113,8 @@ standalone: $(STANDALONE_TEST)
 
 # Generate plot
 plot: $(OUTPUT)
-	@if [ -f ../tools/plot_xyce.pl ]; then \
-		../tools/plot_xyce.pl $(OUTPUT); \
+	@if [ -f ../scripts/plot_xyce.pl ]; then \
+		 ../scripts/plot_xyce.pl $(OUTPUT) $(patsubst %.prn,%.png,$(OUTPUT)); \
 	else \
 		echo "Plotting script not found"; \
 	fi
