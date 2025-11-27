@@ -31,7 +31,9 @@ unless (-f $input_file) {
 }
 
 # Parse the test output
-my ($test_module, @signals, @data_points) = parse_test_output($input_file);
+my ($test_module, $signals_ref, $data_ref) = parse_test_output($input_file);
+my @signals = @$signals_ref;
+my @data_points = @$data_ref;
 
 # Use module name from file if not specified
 $module = $test_module unless $module;
@@ -95,7 +97,7 @@ sub parse_test_output {
 
     close($fh);
 
-    return ($module_name, @signal_names, @data);
+    return ($module_name, \@signal_names, \@data);
 }
 
 sub generate_xyce_circuit {
