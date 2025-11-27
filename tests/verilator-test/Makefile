@@ -25,7 +25,7 @@ TARGET = simple_inv_xyce.so
 STANDALONE_TEST = test_standalone
 BRIDGE_SRC = simple_inv_xyce.C
 BRIDGE_HDR = simple_inv_xyce.h
-WRAPPER_CIR = simple_inv_xyce.cir
+WRAPPER_CIR = simple_inv.cir
 VERILATOR_SRCS = $(VERILATOR_INC)/verilated.cpp $(VERILATOR_INC)/verilated_threads.cpp
 VERILATOR_LIB = obj_dir/$(VERILATOR_CLASS)__ALL.a
 NETLIST = test_simple_inv.cir
@@ -34,7 +34,7 @@ VERILOG2XYCE = ../scripts/verilog2xyce.pl
 
 .PHONY: all build verilate test clean plot help generate standalone
 
-all: build
+all: build standalone test.cir
 
 # Generate wrapper files using verilog2xyce.pl
 generate: $(BRIDGE_SRC)
@@ -113,8 +113,8 @@ standalone: $(STANDALONE_TEST)
 
 # Generate plot
 plot: $(OUTPUT)
-	@if [ -f ../tools/plot_xyce.sh ]; then \
-		../tools/plot_xyce.sh $(OUTPUT); \
+	@if [ -f ../tools/plot_xyce.pl ]; then \
+		../tools/plot_xyce.pl $(OUTPUT); \
 	else \
 		echo "Plotting script not found"; \
 	fi
@@ -123,7 +123,7 @@ plot: $(OUTPUT)
 clean:
 	rm -f $(TARGET) $(OUTPUT) *.png
 	rm -f $(BRIDGE_SRC) $(BRIDGE_HDR) $(WRAPPER_CIR)
-	rm -f $(STANDALONE_TEST) test_standalone.cpp
+	rm -f $(STANDALONE_TEST) test_standalone.cpp test.out test.cir
 	rm -rf obj_dir
 
 help:
@@ -135,6 +135,7 @@ help:
 	@echo "  make verilate   - Run Verilator only (generate C++)"
 	@echo "  make test       - Run Xyce simulation with external device"
 	@echo "  make standalone - Build and run standalone Verilator test (no Xyce)"
+	@echo "  make test.cir   - Xyce version of test"
 	@echo "  make plot       - Generate waveform plot"
 	@echo "  make clean      - Remove all generated files"
 	@echo "  make all        - Full build (default)"

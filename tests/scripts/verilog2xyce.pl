@@ -51,7 +51,8 @@ print "Inputs: ", join(", ", @inputs), "\n";
 print "Outputs: ", join(", ", @outputs), "\n";
 
 # Generate the files
-my $base_name = $module_name . "_xyce";
+my $suffix = "_xyce";
+my $base_name = $module_name;
 my $verilator_class = "V$module_name";
 my $so_file = "${base_name}.so";
 
@@ -60,8 +61,8 @@ generate_implementation($base_name, $module_name, $verilator_class, \@inputs, \@
 generate_netlist($base_name, $module_name, $so_file, \@inputs, \@outputs);
 
 print "\nGenerated files:\n";
-print "  ${base_name}.h\n";
-print "  ${base_name}.C\n";
+print "  ${base_name}$suffix.h\n";
+print "  ${base_name}$suffix.C\n";
 print "  ${base_name}.cir\n";
 print "\nNext steps:\n";
 print "  1. Run Verilator: verilator --cc -CFLAGS \"-fPIC\" $verilog_file\n";
@@ -137,7 +138,7 @@ sub generate_header {
     my $header = uc($base_name) . "_H";
     my $class_name = ucfirst($module);
 
-    open(my $fh, '>', "${base_name}.h") or die "Cannot create ${base_name}.h: $!\n";
+    open(my $fh, '>', "${base_name}${suffix}.h") or die "Cannot create ${base_name}.h: $!\n";
 
     print $fh <<EOF;
 // Auto-generated Xyce wrapper for Verilator module: $module
@@ -216,7 +217,7 @@ sub generate_implementation {
     my @outputs = @$outputs_ref;
     my $class_name = ucfirst($module);
 
-    open(my $fh, '>', "${base_name}.C") or die "Cannot create ${base_name}.C: $!\n";
+    open(my $fh, '>', "${base_name}${suffix}.C") or die "Cannot create ${base_name}.C: $!\n";
 
     print $fh <<EOF;
 // Auto-generated Xyce wrapper for Verilator module: $module
@@ -226,7 +227,7 @@ sub generate_implementation {
 #include <vector>
 #include <cstring>
 #include <assert.h>
-#include "${base_name}.h"
+#include "${base_name}${suffix}.h"
 
 std::vector<${class_name}Verilator *> ${class_name}Devices;
 std::vector<${class_name}Verilator *> ${class_name}DevicesTmp;
