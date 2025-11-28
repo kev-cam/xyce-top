@@ -115,21 +115,43 @@ sub generate_xyce_circuit {
     # Title
     print $fh ".TITLE Replay of $module test\n\n";
 
-    # Generate VPWL sources for each input signal
-    for (my $i = 0; $i < @signals; $i++) {
-        my $signal = $signals[$i];
+    # Assume first signal is input, rest are outputs
+    my @inputs = ($signals[0]);
+    my @outputs = @signals[1..$#signals];
+
+    # Generate PWL sources for input signals (drive circuit directly)
+    foreach my $signal (@inputs) {
+        my $idx = 0;  # First signal
 
         # Build PWL time-value pairs
         my @pwl_pairs;
         foreach my $dp (@data) {
             my $time_s = $dp->{time} * 1e-9;  # Convert ns to seconds
-            my $value = $dp->{values}[$i];
+            my $value = $dp->{values}[$idx];
             push @pwl_pairs, "${time_s} ${value}";
         }
 
         my $pwl_data = join(" ", @pwl_pairs);
-
         print $fh "V${signal} ${signal} 0 PWL( $pwl_data )\n";
+    }
+
+    print $fh "\n";
+
+    # Generate reference PWL sources for output signals (with _ref suffix)
+    for (my $i = 0; $i < @outputs; $i++) {
+        my $signal = $outputs[$i];
+        my $idx = $i + 1;  # Skip first signal (input)
+
+        # Build PWL time-value pairs
+        my @pwl_pairs;
+        foreach my $dp (@data) {
+            my $time_s = $dp->{time} * 1e-9;  # Convert ns to seconds
+            my $value = $dp->{values}[$idx];
+            push @pwl_pairs, "${time_s} ${value}";
+        }
+
+        my $pwl_data = join(" ", @pwl_pairs);
+        print $fh "V${signal}_ref ${signal}_ref 0 PWL( $pwl_data )\n";
     }
 
     print $fh "\n";
@@ -140,9 +162,10 @@ sub generate_xyce_circuit {
     print $fh "\n";
 
     # Instantiate the subcircuit
-    my $net_list = join(" ", @signals);
+    my @circuit_nets = (@inputs, @outputs);
+    my $net_list = join(" ", @circuit_nets);
     print $fh "* Instantiate the device under test\n";
-    print $fh "*X1 $net_list $module\n";
+    print $fh "X1 $net_list $module\n";
     print $fh "\n";
 
     # Analysis
@@ -153,10 +176,13 @@ sub generate_xyce_circuit {
     print $fh ".TRAN $time_step $end_time\n";
     print $fh "\n";
 
-    # Print statements
+    # Print statements - show both circuit outputs and references
     print $fh "* Output\n";
-    foreach my $signal (@signals) {
+    foreach my $signal (@inputs) {
         print $fh ".PRINT TRAN V($signal)\n";
+    }
+    foreach my $signal (@outputs) {
+        print $fh ".PRINT TRAN V($signal) V(${signal}_ref)\n";
     }
     print $fh "\n";
 
