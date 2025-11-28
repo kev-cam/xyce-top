@@ -54,7 +54,7 @@ print "Outputs: ", join(", ", @outputs), "\n";
 my $suffix = "_xyce";
 my $base_name = $module_name;
 my $verilator_class = "V$module_name";
-my $so_file = "${base_name}.so";
+my $so_file = "${base_name}${suffix}.so";
 
 generate_header($base_name, $module_name, $verilator_class, \@inputs, \@outputs);
 generate_implementation($base_name, $module_name, $verilator_class, \@inputs, \@outputs);
