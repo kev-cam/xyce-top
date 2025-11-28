@@ -322,6 +322,18 @@ sub generate_xyce_circuit {
         print $fh "\n";
     }
 
+    # Add dummy loads for output signals (wire resistance + capacitance)
+    if (@outputs) {
+        print $fh "* Output loads\n";
+        foreach my $signal (@outputs) {
+            my $net_name = $signal_to_port{$signal} || $signal;
+            # Wire resistance (100 ohms) and load capacitance (10 fF)
+            print $fh "R${net_name} ${net_name} 0 100\n";
+            print $fh "C${net_name} ${net_name} 0 1e-14\n";
+        }
+        print $fh "\n";
+    }
+
     # Include the subcircuit (assuming it's in a separate file)
     print $fh "* Include the $module subcircuit\n";
     print $fh ".INCLUDE ${module}.cir\n";
