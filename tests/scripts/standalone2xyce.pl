@@ -100,6 +100,58 @@ sub parse_test_output {
     return ($module_name, \@signal_names, \@data);
 }
 
+sub parse_subcircuit_ports {
+    my ($module_name) = @_;
+
+    # Try to find the subcircuit .cir file
+    my @search_paths = (
+        "${module_name}.cir",
+        "../verilator-test/${module_name}.cir",
+        "verilator-test/${module_name}.cir",
+        "./${module_name}.cir",
+    );
+
+    my $subckt_file;
+    foreach my $path (@search_paths) {
+        if (-f $path) {
+            $subckt_file = $path;
+            last;
+        }
+    }
+
+    # If no subcircuit file found, return empty
+    return ([], {}) unless $subckt_file;
+
+    open(my $fh, '<', $subckt_file) or return ([], {});
+
+    my @subckt_ports;
+    my %power_pins;
+
+    while (my $line = <$fh>) {
+        chomp $line;
+
+        # Look for .SUBCKT definition
+        if ($line =~ /^\s*\.SUBCKT\s+\S+\s+(.+)$/i) {
+            my $ports_str = $1;
+            @subckt_ports = split(/\s+/, $ports_str);
+
+            # Identify power supply pins
+            foreach my $port (@subckt_ports) {
+                if ($port =~ /^(VDD|VPWR|VCC|VPP)$/i) {
+                    $power_pins{$port} = 'supply';  # Positive supply
+                } elsif ($port =~ /^(VSS|VGND|GND|VEE|VNB|VPB)$/i) {
+                    $power_pins{$port} = 'ground';  # Ground/substrate
+                }
+            }
+            last;
+        }
+    }
+
+    close($fh);
+
+    return (\@subckt_ports, \%power_pins);
+}
+
 sub parse_verilog_module {
     my ($module_name) = @_;
 
@@ -176,11 +228,16 @@ sub generate_xyce_circuit {
     # Title
     print $fh ".TITLE Replay of $module test\n\n";
 
+    # Parse subcircuit to check for power supply pins
+    my ($subckt_ports_ref, $power_pins_ref) = parse_subcircuit_ports($module);
+    my @subckt_ports = @$subckt_ports_ref;
+    my %power_pins = %$power_pins_ref;
+
     # Parse Verilog to determine input/output ports
     my ($inputs_ref, $outputs_ref, $port_order_ref) = parse_verilog_module($module);
     my %input_ports = %$inputs_ref;
     my %output_ports = %$outputs_ref;
-    my @port_order = @$port_order_ref;
+    my @verilog_port_order = @$port_order_ref;
 
     # Classify signals based on Verilog port directions
     my @inputs = grep { exists $input_ports{$_} } @signals;
@@ -228,13 +285,50 @@ sub generate_xyce_circuit {
 
     print $fh "\n";
 
+    # Add power supply voltage sources if subcircuit needs them
+    if (keys %power_pins) {
+        print $fh "* Power supplies\n";
+        foreach my $pin (sort keys %power_pins) {
+            if ($power_pins{$pin} eq 'supply') {
+                # Positive supply (VDD, VPWR, etc.) - use 3.3V for SkyWater, 5V for others
+                my $voltage = ($pin =~ /VPWR|VDD/i) ? "3.3" : "5.0";
+                print $fh "V${pin} ${pin} 0 DC ${voltage}V\n";
+            } elsif ($power_pins{$pin} eq 'ground') {
+                # Ground/substrate pins - connect to 0V
+                print $fh "V${pin} ${pin} 0 DC 0V\n";
+            }
+        }
+        print $fh "\n";
+    }
+
     # Include the subcircuit (assuming it's in a separate file)
     print $fh "* Include the $module subcircuit\n";
     print $fh ".INCLUDE ${module}.cir\n";
     print $fh "\n";
 
-    # Instantiate the subcircuit using Verilog port order
-    my $net_list = join(" ", @port_order);
+    # Instantiate the subcircuit
+    # Use subcircuit port order if available, otherwise use Verilog port order
+    my @instance_nets;
+    if (@subckt_ports) {
+        # Map subcircuit ports to actual net names
+        foreach my $port (@subckt_ports) {
+            if (exists $power_pins{$port}) {
+                # Power pin - use the pin name as net
+                push @instance_nets, $port;
+            } elsif (grep { $_ eq $port } @verilog_port_order) {
+                # Signal port - use from Verilog
+                push @instance_nets, $port;
+            } else {
+                # Unknown port - use as-is
+                push @instance_nets, $port;
+            }
+        }
+    } else {
+        # Fall back to Verilog port order
+        @instance_nets = @verilog_port_order;
+    }
+
+    my $net_list = join(" ", @instance_nets);
     print $fh "* Instantiate the device under test\n";
     print $fh "X1 $net_list $module\n";
     print $fh "\n";
