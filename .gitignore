@@ -12,6 +12,10 @@ tests/verilator-test/*.so
 tests/verilator-test/obj_dir/
 tests/verilator-test/*.prn
 tests/verilator-test/*.log
+tests/verilator-test/*.out
+tests/verilator-test/*.cir
+tests/verilator-test/test_standalone
+tests/verilator-test/test_standalone.cpp
 
 # Verilator generated files
 obj_dir/
@@ -21,6 +25,7 @@ obj_dir/
 *.log
 *.png
 *.bench
+*.out
 
 # Python
 __pycache__/
