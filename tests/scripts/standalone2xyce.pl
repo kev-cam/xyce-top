@@ -249,9 +249,28 @@ sub generate_xyce_circuit {
         $signal_index{$signals[$i]} = $i;
     }
 
+    # Create mapping from test signal names to subcircuit port names (case-insensitive)
+    my %signal_to_port;
+    if (@subckt_ports) {
+        # Build case-insensitive mapping
+        my %port_lc_map;
+        foreach my $port (@subckt_ports) {
+            $port_lc_map{lc($port)} = $port unless exists $power_pins{$port};
+        }
+
+        # Map test signals to subcircuit ports
+        foreach my $sig (@signals) {
+            if (exists $port_lc_map{lc($sig)}) {
+                $signal_to_port{$sig} = $port_lc_map{lc($sig)};
+            }
+        }
+    }
+
     # Generate PWL sources for input signals (drive circuit directly)
     foreach my $signal (@inputs) {
         my $idx = $signal_index{$signal};
+        # Use subcircuit port name if available, otherwise use test signal name
+        my $net_name = $signal_to_port{$signal} || $signal;
 
         # Build PWL time-value pairs
         my @pwl_pairs;
@@ -262,7 +281,7 @@ sub generate_xyce_circuit {
         }
 
         my $pwl_data = join(" ", @pwl_pairs);
-        print $fh "V${signal} ${signal} 0 PWL( $pwl_data )\n";
+        print $fh "V${net_name} ${net_name} 0 PWL( $pwl_data )\n";
     }
 
     print $fh "\n";
@@ -270,6 +289,8 @@ sub generate_xyce_circuit {
     # Generate reference PWL sources for output signals (with _ref suffix)
     foreach my $signal (@outputs) {
         my $idx = $signal_index{$signal};
+        # Use subcircuit port name if available, otherwise use test signal name
+        my $net_name = $signal_to_port{$signal} || $signal;
 
         # Build PWL time-value pairs
         my @pwl_pairs;
@@ -280,7 +301,7 @@ sub generate_xyce_circuit {
         }
 
         my $pwl_data = join(" ", @pwl_pairs);
-        print $fh "V${signal}_ref ${signal}_ref 0 PWL( $pwl_data )\n";
+        print $fh "V${net_name}_ref ${net_name}_ref 0 PWL( $pwl_data )\n";
     }
 
     print $fh "\n";
@@ -315,11 +336,8 @@ sub generate_xyce_circuit {
             if (exists $power_pins{$port}) {
                 # Power pin - use the pin name as net
                 push @instance_nets, $port;
-            } elsif (grep { $_ eq $port } @verilog_port_order) {
-                # Signal port - use from Verilog
-                push @instance_nets, $port;
             } else {
-                # Unknown port - use as-is
+                # Signal port - use the subcircuit's port name as net
                 push @instance_nets, $port;
             }
         }
@@ -344,10 +362,12 @@ sub generate_xyce_circuit {
     # Print statements - show both circuit outputs and references
     print $fh "* Output\n";
     foreach my $signal (@inputs) {
-        print $fh ".PRINT TRAN V($signal)\n";
+        my $net_name = $signal_to_port{$signal} || $signal;
+        print $fh ".PRINT TRAN V($net_name)\n";
     }
     foreach my $signal (@outputs) {
-        print $fh ".PRINT TRAN V($signal) V(${signal}_ref)\n";
+        my $net_name = $signal_to_port{$signal} || $signal;
+        print $fh ".PRINT TRAN V($net_name) V(${net_name}_ref)\n";
     }
     print $fh "\n";
 
