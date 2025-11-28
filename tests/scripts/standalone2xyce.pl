@@ -100,6 +100,67 @@ sub parse_test_output {
     return ($module_name, \@signal_names, \@data);
 }
 
+sub parse_verilog_module {
+    my ($module_name) = @_;
+
+    # Try to find the Verilog file
+    my @search_paths = (
+        "${module_name}.v",
+        "../verilator-test/${module_name}.v",
+        "verilator-test/${module_name}.v",
+        "./${module_name}.v",
+    );
+
+    my $verilog_file;
+    foreach my $path (@search_paths) {
+        if (-f $path) {
+            $verilog_file = $path;
+            last;
+        }
+    }
+
+    unless ($verilog_file) {
+        die "Error: Cannot find Verilog file for module $module_name\n";
+    }
+
+    open(my $fh, '<', $verilog_file) or die "Cannot open $verilog_file: $!\n";
+
+    my %inputs;
+    my %outputs;
+    my @port_order;  # Track port order from Verilog
+    my $in_module = 0;
+
+    while (my $line = <$fh>) {
+        chomp $line;
+
+        # Look for module declaration
+        if ($line =~ /^\s*module\s+$module_name\s*\(/) {
+            $in_module = 1;
+        }
+
+        next unless $in_module;
+
+        # Parse input declarations
+        if ($line =~ /^\s*input\s+(?:wire\s+)?(\w+)/) {
+            $inputs{$1} = 1;
+            push @port_order, $1;
+        }
+
+        # Parse output declarations
+        if ($line =~ /^\s*output\s+(?:wire\s+)?(\w+)/) {
+            $outputs{$1} = 1;
+            push @port_order, $1;
+        }
+
+        # End of module port list
+        last if $line =~ /\)\s*;/;
+    }
+
+    close($fh);
+
+    return (\%inputs, \%outputs, \@port_order);
+}
+
 sub generate_xyce_circuit {
     my ($file, $module, $signals_ref, $data_ref) = @_;
     my @signals = @$signals_ref;
@@ -115,13 +176,25 @@ sub generate_xyce_circuit {
     # Title
     print $fh ".TITLE Replay of $module test\n\n";
 
-    # Assume first signal is input, rest are outputs
-    my @inputs = ($signals[0]);
-    my @outputs = @signals[1..$#signals];
+    # Parse Verilog to determine input/output ports
+    my ($inputs_ref, $outputs_ref, $port_order_ref) = parse_verilog_module($module);
+    my %input_ports = %$inputs_ref;
+    my %output_ports = %$outputs_ref;
+    my @port_order = @$port_order_ref;
+
+    # Classify signals based on Verilog port directions
+    my @inputs = grep { exists $input_ports{$_} } @signals;
+    my @outputs = grep { exists $output_ports{$_} } @signals;
+
+    # Create a mapping from signal name to index in data
+    my %signal_index;
+    for (my $i = 0; $i < @signals; $i++) {
+        $signal_index{$signals[$i]} = $i;
+    }
 
     # Generate PWL sources for input signals (drive circuit directly)
     foreach my $signal (@inputs) {
-        my $idx = 0;  # First signal
+        my $idx = $signal_index{$signal};
 
         # Build PWL time-value pairs
         my @pwl_pairs;
@@ -138,9 +211,8 @@ sub generate_xyce_circuit {
     print $fh "\n";
 
     # Generate reference PWL sources for output signals (with _ref suffix)
-    for (my $i = 0; $i < @outputs; $i++) {
-        my $signal = $outputs[$i];
-        my $idx = $i + 1;  # Skip first signal (input)
+    foreach my $signal (@outputs) {
+        my $idx = $signal_index{$signal};
 
         # Build PWL time-value pairs
         my @pwl_pairs;
@@ -161,9 +233,8 @@ sub generate_xyce_circuit {
     print $fh ".INCLUDE ${module}.cir\n";
     print $fh "\n";
 
-    # Instantiate the subcircuit
-    my @circuit_nets = (@inputs, @outputs);
-    my $net_list = join(" ", @circuit_nets);
+    # Instantiate the subcircuit using Verilog port order
+    my $net_list = join(" ", @port_order);
     print $fh "* Instantiate the device under test\n";
     print $fh "X1 $net_list $module\n";
     print $fh "\n";
