@@ -4,7 +4,7 @@
 *.a
 
 # Generated wrapper files from verilog2xyce.pl
-simple_inv_xyce.*
+*_xyce.*
 
 # Test build directories (contain generated artifacts)
 tests/gates-test/
