@@ -161,6 +161,7 @@ protected:
 EOF
 
     # Generate handler pointers for each port
+    print $fh "    ${class_name}PwlHandler *vdd_handler;\n";
     for my $in (@inputs) {
         print $fh "    ${class_name}PwlHandler *${in}_handler;\n";
     }
@@ -178,6 +179,8 @@ public:
 EOF
 
     # Generate setters/getters
+    print $fh "    inline void set_vdd(${class_name}PwlHandler *h) { vdd_handler = h; }\n";
+    print $fh "    inline ${class_name}PwlHandler *vdd() const { return vdd_handler; }\n";
     for my $in (@inputs) {
         print $fh "    inline void set_${in}(${class_name}PwlHandler *h) { ${in}_handler = h; }\n";
         print $fh "    inline ${class_name}PwlHandler *${in}() const { return ${in}_handler; }\n";
@@ -237,6 +240,7 @@ ${class_name}Verilator::${class_name}Verilator()
 EOF
 
     # Initialize handlers to NULL
+    print $fh "      vdd_handler(NULL),\n";
     for my $in (@inputs) {
         print $fh "      ${in}_handler(NULL),\n";
     }
@@ -257,8 +261,8 @@ bool ${class_name}Verilator::Finished() {
     return (
 EOF
 
-    # Check all handlers are ready
-    my @all_ports = (@inputs, @outputs);
+    # Check all handlers are ready (including vdd)
+    my @all_ports = ('vdd', @inputs, @outputs);
     print $fh "        NULL != " . join("_handler &&\n        NULL != ", @all_ports) . "_handler";
     if (@outputs) {
         print $fh " &&\n        " . $outputs[0] . "_handler->ready()";
@@ -280,8 +284,9 @@ ${class_name}PwlHandler::${class_name}PwlHandler(
 void ${class_name}Verilator::Eval(double now) {
 EOF
 
-    # Check handlers
-    print $fh "    if (!" . join("_handler || !", @all_ports) . "_handler) return;\n\n";
+    # Check handlers (vdd is optional for Eval since it's just monitored)
+    my @required_ports = (@inputs, @outputs);
+    print $fh "    if (!" . join("_handler || !", @required_ports) . "_handler) return;\n\n";
 
     # Read inputs and convert to digital
     for my $in (@inputs) {
@@ -325,6 +330,16 @@ void ${class_name}Cross(PwlHandler *pwlh, double skew, double Vbegin, double Ven
 EOF
 
     my $port_idx = 0;
+    # Bridge function for VDD
+    print $fh <<EOF;
+int ${class_name}Bridge_vdd(PWLinDynData *XyceSrc, void *MyData, int op, void *data) {
+    ${class_name}Verilator *dev = (${class_name}Verilator *)MyData;
+    return PwlBridge(XyceSrc, dev->vdd(), op, data);
+}
+
+EOF
+    $port_idx++;
+
     for my $in (@inputs) {
         print $fh <<EOF;
 int ${class_name}Bridge_${in}(PWLinDynData *XyceSrc, void *MyData, int op, void *data) {
@@ -379,6 +394,19 @@ EOF
     }
 EOF
     }
+
+    # Add handler for VDD voltage monitoring
+    print $fh <<EOF;
+    else if (0 == strncasecmp(args, "vdd", strlen("vdd"))) {
+        if (new_dev = (NULL != dev->vdd())) {
+            check = dev;
+            dev = new ${class_name}Verilator();
+        }
+        while (*args && *args++ != ',');
+        dev->set_vdd(new ${class_name}PwlHandler(XyceSrc, dev, "vdd", args));
+        bFn = ${class_name}Bridge_vdd;
+    }
+EOF
 
     for my $in (@inputs) {
         print $fh <<EOF;
@@ -458,6 +486,9 @@ EOF
     # Generate device instances
     print $fh "* $module device using Verilator (ports via PWL bridge)\n";
     my $n = 1;
+    # IPWL for VDD voltage monitoring
+    print $fh "IPWL$n VDD 0 PWL FILE \"code:./$so_file:Connect${class_name}:vdd\"\n";
+    $n++;
     for my $in (@inputs) {
         print $fh "IPWL$n ${module}_${in} 0 PWL FILE \"code:./$so_file:Connect${class_name}:$in\"\n";
 	$n++;
