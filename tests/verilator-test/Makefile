@@ -23,7 +23,7 @@ VERILOG_SRC = $(TEST_NAME).v
 MODULE_NAME = $(TEST_NAME)
 VERILATOR_CLASS = V$(TEST_NAME)
 TARGET = $(TEST_NAME)_xyce.so
-STANDALONE_TEST = test_standalone
+STANDALONE_TEST = $(TEST_NAME)_vexe
 BRIDGE_SRC = $(TEST_NAME)_xyce.C
 BRIDGE_HDR = $(TEST_NAME)_xyce.h
 WRAPPER_CIR = $(TEST_NAME).cir
@@ -35,7 +35,7 @@ VERILOG2XYCE = ../scripts/verilog2xyce.pl
 
 .PHONY: all build verilate test clean plot help generate standalone
 
-all: build standalone test.cir
+all: build standalone test-cir
 
 # Generate wrapper files using verilog2xyce.pl
 generate: $(BRIDGE_SRC)
@@ -66,8 +66,10 @@ $(TARGET): $(BRIDGE_SRC) $(VERILATOR_LIB) $(PARENT_DIR)/xbridge.C
 		$(VERILATOR_SRCS) $(VERILATOR_LIB)
 	@ls -lh $@
 
-test.cir: standalone
-	../scripts/standalone2xyce.pl test.out -o test.cir
+%.out: standalone
+
+test-cir: $(TEST_NAME).out
+	../scripts/standalone2xyce.pl $(TEST_NAME).out -o test__$(TEST_NAME).cir
 
 # Run test
 test: build
@@ -84,33 +86,33 @@ test: build
 
 # Build and run standalone Verilator test (no Xyce)
 $(STANDALONE_TEST): verilate
-	@echo "Building standalone test..."
-	@echo '#include <iostream>' > test_standalone.cpp
-	@echo '#include <iomanip>' >> test_standalone.cpp
-	@echo '#include "$(VERILATOR_CLASS).h"' >> test_standalone.cpp
-	@echo '#include "verilated.h"' >> test_standalone.cpp
-	@echo 'int main(int argc, char** argv) {' >> test_standalone.cpp
-	@echo '    Verilated::commandArgs(argc, argv);' >> test_standalone.cpp
-	@echo '    $(VERILATOR_CLASS)* top = new $(VERILATOR_CLASS);' >> test_standalone.cpp
-	@echo '    double time_ns = 0.0;' >> test_standalone.cpp
-	@echo '    double time_step = 1.0;  // 1ns per step' >> test_standalone.cpp
-	@echo '    std::cout << "# Testing $(MODULE_NAME)" << std::endl;' >> test_standalone.cpp
-	@echo '    std::cout << "# time(ns) in out" << std::endl;' >> test_standalone.cpp
-	@echo '    for (int i = 0; i < 10; i++) {' >> test_standalone.cpp
-	@echo '        top->in = (i % 2);' >> test_standalone.cpp
-	@echo '        top->eval();' >> test_standalone.cpp
-	@echo '        std::cout << std::fixed << std::setprecision(2) << time_ns << " " << (int)top->in << " " << (int)top->out << std::endl;' >> test_standalone.cpp
-	@echo '        time_ns += time_step;' >> test_standalone.cpp
-	@echo '    }' >> test_standalone.cpp
-	@echo '    delete top;' >> test_standalone.cpp
-	@echo '    return 0;' >> test_standalone.cpp
-	@echo '}' >> test_standalone.cpp
-	$(CXX) $(CXXFLAGS) -o $(STANDALONE_TEST) test_standalone.cpp \
+	@echo "Building $(TEST_NAME) test..."
+	@echo '#include <iostream>' > test_$(TEST_NAME).cpp
+	@echo '#include <iomanip>' >> test_$(TEST_NAME).cpp
+	@echo '#include "$(VERILATOR_CLASS).h"' >> test_$(TEST_NAME).cpp
+	@echo '#include "verilated.h"' >> test_$(TEST_NAME).cpp
+	@echo 'int main(int argc, char** argv) {' >> test_$(TEST_NAME).cpp
+	@echo '    Verilated::commandArgs(argc, argv);' >> test_$(TEST_NAME).cpp
+	@echo '    $(VERILATOR_CLASS)* top = new $(VERILATOR_CLASS);' >> test_$(TEST_NAME).cpp
+	@echo '    double time_ns = 0.0;' >> test_$(TEST_NAME).cpp
+	@echo '    double time_step = 1.0;  // 1ns per step' >> test_$(TEST_NAME).cpp
+	@echo '    std::cout << "# Testing $(MODULE_NAME)" << std::endl;' >> test_$(TEST_NAME).cpp
+	@echo '    std::cout << "# time(ns) in out" << std::endl;' >> test_$(TEST_NAME).cpp
+	@echo '    for (int i = 0; i < 10; i++) {' >> test_$(TEST_NAME).cpp
+	@echo '        top->in = (i % 2);' >> test_$(TEST_NAME).cpp
+	@echo '        top->eval();' >> test_$(TEST_NAME).cpp
+	@echo '        std::cout << std::fixed << std::setprecision(2) << time_ns << " " << (int)top->in << " " << (int)top->out << std::endl;' >> test_$(TEST_NAME).cpp
+	@echo '        time_ns += time_step;' >> test_$(TEST_NAME).cpp
+	@echo '    }' >> test_$(TEST_NAME).cpp
+	@echo '    delete top;' >> test_$(TEST_NAME).cpp
+	@echo '    return 0;' >> test_$(TEST_NAME).cpp
+	@echo '}' >> test_$(TEST_NAME).cpp
+	$(CXX) $(CXXFLAGS) -o $(STANDALONE_TEST) test_$(TEST_NAME).cpp \
 		$(VERILATOR_SRCS) $(VERILATOR_LIB)
 
 standalone: $(STANDALONE_TEST)
 	@echo "Running standalone Verilator test..."
-	./$(STANDALONE_TEST) | tee test.out
+	./$(STANDALONE_TEST) | tee $(TEST_NAME).out
 
 # Generate plot
 plot: $(OUTPUT)
@@ -124,7 +126,7 @@ plot: $(OUTPUT)
 clean:
 	rm -f $(TARGET) $(OUTPUT) *.png
 	rm -f $(BRIDGE_SRC) $(BRIDGE_HDR) $(WRAPPER_CIR)
-	rm -f $(STANDALONE_TEST) test_standalone.cpp test.out test.cir
+	rm -f test_* *.out *.cir* *.log *.h *.C *.so
 	rm -rf obj_dir
 
 help:
@@ -136,7 +138,7 @@ help:
 	@echo "  make verilate   - Run Verilator only (generate C++)"
 	@echo "  make test       - Run Xyce simulation with external device"
 	@echo "  make standalone - Build and run standalone Verilator test (no Xyce)"
-	@echo "  make test.cir   - Xyce version of test"
+	@echo "  make test-cir   - Xyce version of test"
 	@echo "  make plot       - Generate waveform plot"
 	@echo "  make clean      - Remove all generated files"
 	@echo "  make all        - Full build (default)"
