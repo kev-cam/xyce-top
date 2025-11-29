@@ -168,6 +168,7 @@ EOF
     for my $out (@outputs) {
         print $fh "    ${class_name}PwlHandler *${out}_handler;\n";
     }
+    print $fh "    ${class_name}PwlHandler *vss_handler;\n";
 
     print $fh <<EOF;
     double threshold;  // Voltage threshold for digital conversion
@@ -189,6 +190,8 @@ EOF
         print $fh "    inline void set_${out}(${class_name}PwlHandler *h) { ${out}_handler = h; }\n";
         print $fh "    inline ${class_name}PwlHandler *${out}() const { return ${out}_handler; }\n";
     }
+    print $fh "    inline void set_vss(${class_name}PwlHandler *h) { vss_handler = h; }\n";
+    print $fh "    inline ${class_name}PwlHandler *vss() const { return vss_handler; }\n";
 
     print $fh <<EOF;
 
@@ -247,6 +250,7 @@ EOF
     for my $out (@outputs) {
         print $fh "      ${out}_handler(NULL),\n";
     }
+    print $fh "      vss_handler(NULL),\n";
 
     print $fh <<EOF;
       threshold(0.5)
@@ -261,8 +265,8 @@ bool ${class_name}Verilator::Finished() {
     return (
 EOF
 
-    # Check all handlers are ready (including vdd)
-    my @all_ports = ('vdd', @inputs, @outputs);
+    # Check all handlers are ready (including vdd and vss)
+    my @all_ports = ('vdd', @inputs, @outputs, 'vss');
     print $fh "        NULL != " . join("_handler &&\n        NULL != ", @all_ports) . "_handler";
     if (@outputs) {
         print $fh " &&\n        " . $outputs[0] . "_handler->ready()";
@@ -362,6 +366,16 @@ EOF
         $port_idx++;
     }
 
+    # Bridge function for VSS
+    print $fh <<EOF;
+int ${class_name}Bridge_vss(PWLinDynData *XyceSrc, void *MyData, int op, void *data) {
+    ${class_name}Verilator *dev = (${class_name}Verilator *)MyData;
+    return PwlBridge(XyceSrc, dev->vss(), op, data);
+}
+
+EOF
+    $port_idx++;
+
     print $fh <<EOF;
 // Attachment function (called by Xyce)
 BridgeFn Connect${class_name}(PWLinDynData *XyceSrc, void **MyData, const char *args) {
@@ -423,6 +437,19 @@ EOF
 EOF
     }
 
+    # Add handler for VSS voltage monitoring
+    print $fh <<EOF;
+    else if (0 == strncasecmp(args, "vss", strlen("vss"))) {
+        if (new_dev = (NULL != dev->vss())) {
+            check = dev;
+            dev = new ${class_name}Verilator();
+        }
+        while (*args && *args++ != ',');
+        dev->set_vss(new ${class_name}PwlHandler(XyceSrc, dev, "vss", args));
+        bFn = ${class_name}Bridge_vss;
+    }
+EOF
+
     print $fh <<EOF;
 
     if (NULL != check) {
@@ -471,7 +498,9 @@ sub generate_netlist {
 
 EOF
 
-    print $fh ".SUBCKT $module VDD OUT IN\n\n";
+    # Build port list: VDD, inputs, outputs, VSS
+    my $ports = "VDD " . join(" ", @inputs) . " " . join(" ", @outputs) . " VSS";
+    print $fh ".SUBCKT $module $ports\n\n";
 
     if ($stimulate) {
 	# Generate stimulus for inputs
@@ -486,17 +515,19 @@ EOF
     # Generate device instances
     print $fh "* $module device using Verilator (ports via PWL bridge)\n";
     my $n = 1;
-    # IPWL for VDD voltage monitoring
+    # IPWL for power supply monitoring
     print $fh "IPWL$n VDD 0 PWL FILE \"code:./$so_file:Connect${class_name}:vdd\"\n";
     $n++;
     for my $in (@inputs) {
-        print $fh "IPWL$n ${module}_${in} 0 PWL FILE \"code:./$so_file:Connect${class_name}:$in\"\n";
+        print $fh "IPWL$n $in 0 PWL FILE \"code:./$so_file:Connect${class_name}:$in\"\n";
 	$n++;
     }
     for my $out (@outputs) {
-        print $fh "VPWL$n ${module}_${out} 0 PWL FILE \"code:./$so_file:Connect${class_name}:$out\"\n";
+        print $fh "VPWL$n $out 0 PWL FILE \"code:./$so_file:Connect${class_name}:$out\"\n";
 	$n++;
     }
+    print $fh "IPWL$n VSS 0 PWL FILE \"code:./$so_file:Connect${class_name}:vss\"\n";
+    $n++;
 
     print $fh "\n.ENDS\n\n";
 
