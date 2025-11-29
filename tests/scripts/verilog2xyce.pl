@@ -458,6 +458,9 @@ EOF
     # Generate device instances
     print $fh "* $module device using Verilator (ports via PWL bridge)\n";
     my $n = 1;
+    # IPWL for VDD voltage monitoring
+    print $fh "IPWL$n VDD 0 PWL FILE \"code:./$so_file:Connect${class_name}:vdd\"\n";
+    $n++;
     for my $in (@inputs) {
         print $fh "IPWL$n ${module}_${in} 0 PWL FILE \"code:./$so_file:Connect${class_name}:$in\"\n";
 	$n++;
