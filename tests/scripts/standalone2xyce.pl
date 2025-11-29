@@ -231,7 +231,7 @@ sub generate_xyce_circuit {
     print $fh "\n";
 
     # Title
-    print $fh ".TITLE Replay of $module test\n\n";
+    print $fh "* Replay of $module test\n\n";
 
     # Parse subcircuit to check for power supply pins
     my ($subckt_ports_ref, $power_pins_ref, $uses_pwl_bridge) = parse_subcircuit_ports($module);
