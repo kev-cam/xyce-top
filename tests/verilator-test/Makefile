@@ -87,26 +87,7 @@ test: build
 # Build and run standalone Verilator test (no Xyce)
 $(STANDALONE_TEST): verilate
 	@echo "Building $(TEST_NAME) test..."
-	@echo '#include <iostream>' > test_$(TEST_NAME).cpp
-	@echo '#include <iomanip>' >> test_$(TEST_NAME).cpp
-	@echo '#include "$(VERILATOR_CLASS).h"' >> test_$(TEST_NAME).cpp
-	@echo '#include "verilated.h"' >> test_$(TEST_NAME).cpp
-	@echo 'int main(int argc, char** argv) {' >> test_$(TEST_NAME).cpp
-	@echo '    Verilated::commandArgs(argc, argv);' >> test_$(TEST_NAME).cpp
-	@echo '    $(VERILATOR_CLASS)* top = new $(VERILATOR_CLASS);' >> test_$(TEST_NAME).cpp
-	@echo '    double time_ns = 0.0;' >> test_$(TEST_NAME).cpp
-	@echo '    double time_step = 1.0;  // 1ns per step' >> test_$(TEST_NAME).cpp
-	@echo '    std::cout << "# Testing $(MODULE_NAME)" << std::endl;' >> test_$(TEST_NAME).cpp
-	@echo '    std::cout << "# time(ns) in out" << std::endl;' >> test_$(TEST_NAME).cpp
-	@echo '    for (int i = 0; i < 10; i++) {' >> test_$(TEST_NAME).cpp
-	@echo '        top->in = (i % 2);' >> test_$(TEST_NAME).cpp
-	@echo '        top->eval();' >> test_$(TEST_NAME).cpp
-	@echo '        std::cout << std::fixed << std::setprecision(2) << time_ns << " " << (int)top->in << " " << (int)top->out << std::endl;' >> test_$(TEST_NAME).cpp
-	@echo '        time_ns += time_step;' >> test_$(TEST_NAME).cpp
-	@echo '    }' >> test_$(TEST_NAME).cpp
-	@echo '    delete top;' >> test_$(TEST_NAME).cpp
-	@echo '    return 0;' >> test_$(TEST_NAME).cpp
-	@echo '}' >> test_$(TEST_NAME).cpp
+	../scripts/generate_test.pl -m $(TEST_NAME) -v $(TEST_NAME).v
 	$(CXX) $(CXXFLAGS) -o $(STANDALONE_TEST) test_$(TEST_NAME).cpp \
 		$(VERILATOR_SRCS) $(VERILATOR_LIB)
 
