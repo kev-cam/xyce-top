@@ -120,12 +120,13 @@ sub parse_subcircuit_ports {
     }
 
     # If no subcircuit file found, return empty
-    return ([], {}) unless $subckt_file;
+    return ([], {}, 0) unless $subckt_file;
 
-    open(my $fh, '<', $subckt_file) or return ([], {});
+    open(my $fh, '<', $subckt_file) or return ([], {}, 0);
 
     my @subckt_ports;
     my %power_pins;
+    my $uses_pwl_bridge = 0;
 
     while (my $line = <$fh>) {
         chomp $line;
@@ -143,13 +144,17 @@ sub parse_subcircuit_ports {
                     $power_pins{$port} = 'ground';  # Ground/substrate
                 }
             }
-            last;
+        }
+
+        # Check if subcircuit uses PWL bridge (IPWL/VPWL with code:)
+        if ($line =~ /^\s*(IPWL|VPWL).*code:/i) {
+            $uses_pwl_bridge = 1;
         }
     }
 
     close($fh);
 
-    return (\@subckt_ports, \%power_pins);
+    return (\@subckt_ports, \%power_pins, $uses_pwl_bridge);
 }
 
 sub parse_verilog_module {
@@ -229,7 +234,7 @@ sub generate_xyce_circuit {
     print $fh ".TITLE Replay of $module test\n\n";
 
     # Parse subcircuit to check for power supply pins
-    my ($subckt_ports_ref, $power_pins_ref) = parse_subcircuit_ports($module);
+    my ($subckt_ports_ref, $power_pins_ref, $uses_pwl_bridge) = parse_subcircuit_ports($module);
     my @subckt_ports = @$subckt_ports_ref;
     my %power_pins = %$power_pins_ref;
 
@@ -311,9 +316,16 @@ sub generate_xyce_circuit {
         print $fh "* Power supplies\n";
         foreach my $pin (sort keys %power_pins) {
             if ($power_pins{$pin} eq 'supply') {
-                # Positive supply (VDD, VPWR, etc.) - use 3.3V for SkyWater, 5V for others
+                # Positive supply (VDD, VPWR, etc.)
                 my $voltage = ($pin =~ /VPWR|VDD/i) ? "3.3" : "5.0";
-                print $fh "V${pin} ${pin} 0 DC ${voltage}V\n";
+
+                if ($uses_pwl_bridge) {
+                    # For PWL bridge subcircuits, use VPWL to ramp VDD from 0 to target voltage
+                    print $fh "VPWL_${pin} ${pin} 0 PWL( 0 0 1e-09 ${voltage} )\n";
+                } else {
+                    # For standard subcircuits, use DC voltage source
+                    print $fh "V${pin} ${pin} 0 DC ${voltage}V\n";
+                }
             } elsif ($power_pins{$pin} eq 'ground') {
                 # Ground/substrate pins - connect to 0V
                 print $fh "V${pin} ${pin} 0 DC 0V\n";
