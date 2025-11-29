@@ -316,23 +316,19 @@ sub generate_xyce_circuit {
         print $fh "* Power supplies\n";
         foreach my $pin (sort keys %power_pins) {
             if ($power_pins{$pin} eq 'supply') {
-                # Positive supply (VDD, VPWR, etc.) - use 3.3V for SkyWater, 5V for others
+                # Positive supply (VDD, VPWR, etc.)
                 my $voltage = ($pin =~ /VPWR|VDD/i) ? "3.3" : "5.0";
-                print $fh "V${pin} ${pin} 0 DC ${voltage}V\n";
+
+                if ($uses_pwl_bridge) {
+                    # For PWL bridge subcircuits, use VPWL to ramp VDD from 0 to target voltage
+                    print $fh "VPWL_${pin} ${pin} 0 PWL( 0 0 1e-09 ${voltage} )\n";
+                } else {
+                    # For standard subcircuits, use DC voltage source
+                    print $fh "V${pin} ${pin} 0 DC ${voltage}V\n";
+                }
             } elsif ($power_pins{$pin} eq 'ground') {
                 # Ground/substrate pins - connect to 0V
                 print $fh "V${pin} ${pin} 0 DC 0V\n";
-            }
-        }
-
-        # If subcircuit uses PWL bridge, add IPWL probes for power supplies
-        if ($uses_pwl_bridge) {
-            foreach my $pin (sort keys %power_pins) {
-                if ($power_pins{$pin} eq 'supply') {
-                    # IPWL probe for VDD voltage monitoring
-                    my $port_lc = lc($pin);
-                    print $fh "IPWL_${pin} ${pin} 0 PWL FILE \"code:./${module}.so!Connect${module}:${port_lc}\"\n";
-                }
             }
         }
         print $fh "\n";
