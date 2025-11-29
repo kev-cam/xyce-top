@@ -18,17 +18,18 @@ VERILATOR = verilator
 VERILATOR_FLAGS = --cc -CFLAGS "-fPIC"
 
 # Files
-VERILOG_SRC = simple_inv.v
-MODULE_NAME = simple_inv
-VERILATOR_CLASS = Vsimple_inv
-TARGET = simple_inv_xyce.so
+TEST_NAME = simple_inv
+VERILOG_SRC = $(TEST_NAME).v
+MODULE_NAME = $(TEST_NAME)
+VERILATOR_CLASS = V$(TEST_NAME)
+TARGET = $(TEST_NAME)_xyce.so
 STANDALONE_TEST = test_standalone
-BRIDGE_SRC = simple_inv_xyce.C
-BRIDGE_HDR = simple_inv_xyce.h
-WRAPPER_CIR = simple_inv.cir
+BRIDGE_SRC = $(TEST_NAME)_xyce.C
+BRIDGE_HDR = $(TEST_NAME)_xyce.h
+WRAPPER_CIR = $(TEST_NAME).cir
 VERILATOR_SRCS = $(VERILATOR_INC)/verilated.cpp $(VERILATOR_INC)/verilated_threads.cpp
 VERILATOR_LIB = obj_dir/$(VERILATOR_CLASS)__ALL.a
-NETLIST = test_simple_inv.cir
+NETLIST = test_$(TEST_NAME).cir
 OUTPUT = test.cir.prn
 VERILOG2XYCE = ../scripts/verilog2xyce.pl
 
