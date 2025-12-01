@@ -12,9 +12,11 @@ use Getopt::Long;
 
 my $help = 0;
 my $verbose = 0;
+my $debug = 0;
 
 GetOptions(
     'help|h'    => \$help,
+    'debug|d'   => \$debug,
     'verbose|v' => \$verbose,
 ) or die "Error in command line arguments\n";
 
@@ -81,8 +83,34 @@ sub convert_verilog_to_bench {
             $signals{$1} = 'input' unless exists $signals{$1};
         }
         # Parse gate instantiations (Verilog primitives: and, or, xor, buf, not, nand, nor, xnor)
-        elsif ($line =~ /^\s*(and|or|xor|buf|not|nand|nor|xnor)\s+\w+\s*\(([^)]+)\)/) {
+        elsif ($line =~ /^\s*(and|or|xor|buf|not|nand|nor|xnor)\s+\w+\s*\(\s*(.*)(\)(;)|\,$)/) {
             my ($gate_type, $ports) = (uc($1), $2);
+
+	    if ($4 ne ";") { # continues
+		my $linex;
+		$ports .= ",";
+		while ($linex = <$in_fh>) {
+		    chomp $linex;
+		    $linex=~ s/\)\s*(;)//;
+		    $ports .= $linex;
+		    last if ($1 eq ";");
+		}
+		my %bind;
+		my @named = split(/\s*,\s*/,$ports);
+		foreach my $p (@named) {
+		    if ($p =~ /\.((\w)+)\(\s*(\S+)\s*\)/) {
+			$bind{$1} = $3;
+		    } else {
+			die "Port binding not understood - $p";
+		    }
+		}
+		$ports = $bind{Y};
+		my $c = 'A'; 
+		while ($bind{$c}) {
+		    $ports .= ",".$bind{$c};
+		    $c++;
+		}
+	    }
 
             # Parse ports: first is output, rest are inputs
             my @port_list = split(/\s*,\s*/, $ports);
@@ -97,6 +125,9 @@ sub convert_verilog_to_bench {
                 inputs => \@ins,
             };
         }
+	elsif ($debug) {
+	    print "???: $line\n";
+	}
 
         last if $line =~ /endmodule/;
     }
