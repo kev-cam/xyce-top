@@ -28,6 +28,12 @@ if ($help || @ARGV == 0) {
 my $verilog_file = shift @ARGV;
 my $bench_file = shift @ARGV;
 
+my %gate;
+
+foreach my $gt ("and","or","xor","buf","not","nand","nor","xnor") {
+    $gate{$gt} = 1;
+}
+
 unless (-f $verilog_file) {
     die "Error: Verilog file not found: $verilog_file\n";
 }
@@ -82,11 +88,12 @@ sub convert_verilog_to_bench {
         elsif ($line =~ /^\s*input\s+(?:wire\s+)?(\w+)/) {
             $signals{$1} = 'input' unless exists $signals{$1};
         }
-        # Parse gate instantiations (Verilog primitives: and, or, xor, buf, not, nand, nor, xnor)
-        elsif ($line =~ /^\s*(and|or|xor|buf|not|nand|nor|xnor)\s+\w+\s*\(\s*(.*)(\)(;)|\,$)/) {
-            my ($gate_type, $ports) = (uc($1), $2);
+        # Parse instantance gate instantiations 
+        elsif ($line =~ /^\s*((\w|_|\\|\$)+)\s+\w+\s*\(\s*(.*)(\)(;)|\,$)/) {
 
-	    if ($4 ne ";") { # continues
+            my ($gate_type, $ports) = (uc($1), $3);
+
+	    if ($5 ne ";") { # continues
 		my $linex;
 		$ports .= ",";
 		while ($linex = <$in_fh>) {
@@ -104,11 +111,15 @@ sub convert_verilog_to_bench {
 			die "Port binding not understood - $p";
 		    }
 		}
-		$ports = $bind{Y};
-		my $c = 'A'; 
-		while ($bind{$c}) {
-		    $ports .= ",".$bind{$c};
-		    $c++;
+		if ($gate{$gate_type}) {
+		    $ports = $bind{Y};
+		    my $c = 'A'; 
+		    while ($bind{$c}) {
+			$ports .= ",".$bind{$c};
+			$c++;
+		    }
+		} else {
+		    die "NIY";
 		}
 	    }
 
