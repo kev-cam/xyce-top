@@ -29,6 +29,7 @@ my $verilog_file = shift @ARGV;
 my $bench_file = shift @ARGV;
 
 my %gate;
+my %module_ports;  # Cache for module port lists
 
 foreach my $gt ("and","or","xor","buf","not","nand","nor","xnor") {
     $gate{$gt} = 1;
@@ -113,13 +114,28 @@ sub convert_verilog_to_bench {
 		}
 		if ($gate{$gate_type}) {
 		    $ports = $bind{Y};
-		    my $c = 'A'; 
+		    my $c = 'A';
 		    while ($bind{$c}) {
 			$ports .= ",".$bind{$c};
 			$c++;
 		    }
 		} else {
-		    die "NIY";
+		    # Look up port order from module file
+		    my $port_list = get_module_ports($gate_type);
+		    if ($port_list && @$port_list) {
+			# Build ports string using the defined port order
+			my @ordered_ports;
+			foreach my $port (@$port_list) {
+			    if (exists $bind{$port}) {
+				push @ordered_ports, $bind{$port};
+			    } else {
+				warn "Warning: Port $port not found in bindings for $gate_type\n";
+			    }
+			}
+			$ports = join(",", @ordered_ports);
+		    } else {
+			die "NIY: Cannot determine port order for module $gate_type\n";
+		    }
 		}
 	    }
 
@@ -247,6 +263,57 @@ sub write_bench_gate {
         my $input_list = join(', ', @inputs);
         print $fh "$output = $type($input_list)\n";
     }
+}
+
+sub get_module_ports {
+    my ($module_name) = @_;
+
+    # Return cached result if available
+    return $module_ports{$module_name} if exists $module_ports{$module_name};
+
+    # Look for module file (try lowercase version)
+    my $module_file = lc($module_name) . ".v";
+
+    unless (-f $module_file) {
+        warn "Warning: Module file not found: $module_file\n";
+        return undef;
+    }
+
+    # Parse module file to extract port list
+    open(my $mfh, '<', $module_file) or do {
+        warn "Warning: Cannot open $module_file: $!\n";
+        return undef;
+    };
+
+    my @port_order;
+    my $in_module = 0;
+
+    while (my $line = <$mfh>) {
+        # Skip comments
+        $line =~ s/\/\/.*$//;
+        $line =~ s/\/\*.*?\*\///g;
+        next if $line =~ /^\s*$/;
+
+        # Look for module declaration
+        if ($line =~ /module\s+\w+\s*\(/) {
+            $in_module = 1;
+        }
+
+        next unless $in_module;
+
+        # Extract port declarations in order
+        if ($line =~ /^\s*(?:input|output|inout)\s+(?:wire\s+|reg\s+)?(?:\[.*?\]\s+)?(\w+)/) {
+            push @port_order, $1;
+        }
+
+        last if $line =~ /endmodule/;
+    }
+
+    close($mfh);
+
+    # Cache and return the port list
+    $module_ports{$module_name} = \@port_order;
+    return \@port_order;
 }
 
 sub print_usage {
