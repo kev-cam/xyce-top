@@ -4,6 +4,6 @@ module simple_inv(
     output wire out
 );
 
-    assign out = ~in;
+    not (out, in);
 
 endmodule

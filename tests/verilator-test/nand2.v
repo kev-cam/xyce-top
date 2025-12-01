@@ -5,6 +5,6 @@ module nand2(
     output wire out
 );
 
-    assign out = ~(a & b);
+    nand (out, a, b);
 
 endmodule
